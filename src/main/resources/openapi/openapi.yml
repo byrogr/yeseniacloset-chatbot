@@ -1,0 +1,457 @@
+openapi: 3.0.3
+
+info:
+  title: Chatbot Pedidos API
+  version: 1.0.0
+  description: |
+    API del backend del chatbot de pedidos por WhatsApp.
+
+    - **Webhooks**: eventos entrantes de WhatsApp Cloud API. Es la única superficie pública en producción.
+    - **Customers** y **Conversations**: operaciones de desarrollo y diagnóstico. Solo existen con el perfil `dev`
+      (marcadas con `x-profile: dev`) y no se exponen en producción.
+
+    Convenciones: recursos en plural y kebab-case, propiedades en camelCase (salvo los payloads de Meta, que conservan
+    su formato snake_case), montos como texto decimal con 2 decimales, fechas en ISO 8601 y errores en formato
+    Problem Details (RFC 9457).
+  contact:
+    name: Roger Rojas
+    email: roger.rojas@rmsolutions.pe
+
+servers:
+  - url: /api/v1
+    description: Ruta base; la versión mayor de la API va en la URL.
+
+tags:
+  - name: Webhooks
+    description: Eventos entrantes de WhatsApp Cloud API.
+  - name: Customers
+    description: Consulta del estado de cuenta de una clienta. Solo perfil `dev`.
+  - name: Conversations
+    description: Simulación de conversaciones con el asistente y gestión de pausas. Solo perfil `dev`.
+
+paths:
+  /webhooks/whatsapp:
+    get:
+      tags: [Webhooks]
+      operationId: verifyWhatsAppWebhook
+      summary: Verifica la suscripción del webhook
+      description: |
+        Meta llama a esta operación al configurar el webhook. Si `hub.mode` es `subscribe` y `hub.verify_token`
+        coincide con el token configurado, se devuelve `hub.challenge` tal cual en texto plano.
+        Los nombres de los parámetros los impone Meta.
+      parameters:
+        - name: hub.mode
+          in: query
+          required: true
+          schema: { type: string, example: subscribe }
+        - name: hub.verify_token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: hub.challenge
+          in: query
+          required: true
+          schema: { type: string, example: "1158201444" }
+      responses:
+        "200":
+          description: Verificación correcta; el cuerpo es el challenge recibido.
+          content:
+            text/plain:
+              schema: { type: string, example: "1158201444" }
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    post:
+      tags: [Webhooks]
+      operationId: receiveWhatsAppEvents
+      summary: Recibe eventos de WhatsApp
+      description: |
+        Recibe mensajes entrantes, ecos de mensajes enviados desde la app del negocio (coexistencia) y estados de
+        entrega. Responde 200 de inmediato y procesa en segundo plano. Un payload que no se puede interpretar también
+        recibe 200, para que Meta no lo reintente indefinidamente.
+      security:
+        - whatsappSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WhatsAppWebhookEvent" }
+            examples:
+              textMessage: { $ref: "#/components/examples/WhatsAppTextMessage" }
+      responses:
+        "200":
+          description: Evento aceptado.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /customers/{phone}/account-status:
+    get:
+      tags: [Customers]
+      operationId: getCustomerAccountStatus
+      summary: Obtiene el estado de cuenta de una clienta
+      description: |
+        Devuelve las campañas con prendas por cobrar, agrupadas por destinataria, con totales calculados a partir
+        del Google Sheet. Solo perfil `dev`.
+      x-profile: dev
+      parameters:
+        - $ref: "#/components/parameters/Phone"
+      responses:
+        "200":
+          description: Estado de cuenta de la clienta.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccountStatus" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /conversations/{phone}/messages:
+    post:
+      tags: [Conversations]
+      operationId: sendConversationMessage
+      summary: Envía un mensaje al asistente como si fuera la clienta
+      description: |
+        Ejecuta un turno completo del asistente (tools, guardia de montos, pausa) y devuelve la respuesta que se
+        enviaría por WhatsApp. No envía nada por WhatsApp. Solo perfil `dev`.
+      x-profile: dev
+      parameters:
+        - $ref: "#/components/parameters/Phone"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConversationMessageRequest" }
+      responses:
+        "200":
+          description: Turno procesado. `reply` es nulo si la conversación está pausada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConversationReply" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /conversations/{phone}/pause:
+    get:
+      tags: [Conversations]
+      operationId: getConversationPause
+      summary: Consulta si la conversación está pausada
+      description: |
+        Devuelve hasta cuándo está pausado el asistente en ese chat (por derivación a la dueña o por un eco de su
+        app). Si no hay pausa vigente, responde 404. Solo perfil `dev`.
+      x-profile: dev
+      parameters:
+        - $ref: "#/components/parameters/Phone"
+      responses:
+        "200":
+          description: La conversación está pausada.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConversationPause" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Conversations]
+      operationId: deleteConversationPause
+      summary: Quita la pausa de la conversación
+      description: Reactiva al asistente en ese chat. Es idempotente. Solo perfil `dev`.
+      x-profile: dev
+      parameters:
+        - $ref: "#/components/parameters/Phone"
+      responses:
+        "204":
+          description: Pausa eliminada o inexistente.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+components:
+  securitySchemes:
+    whatsappSignature:
+      type: apiKey
+      in: header
+      name: X-Hub-Signature-256
+      description: |
+        Firma `sha256=<hex>` del cuerpo crudo con HMAC-SHA256 y el App Secret de Meta. Se valida en un filtro,
+        antes de deserializar.
+
+  parameters:
+    Phone:
+      name: phone
+      in: path
+      required: true
+      description: Celular normalizado, con código de país 51 y sin signos.
+      schema:
+        type: string
+        pattern: "^51\\d{9}$"
+        example: "51911111111"
+
+  responses:
+    BadRequest:
+      description: Solicitud inválida.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unauthorized:
+      description: Firma ausente o inválida.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Forbidden:
+      description: Token de verificación incorrecto.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: El recurso no existe.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    ServiceUnavailable:
+      description: Una dependencia externa (Google Sheets) no está disponible.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+    # ---------- Comunes ----------
+    Problem:
+      type: object
+      description: Error en formato Problem Details (RFC 9457).
+      required: [title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          default: about:blank
+        title: { type: string, example: Customer not found }
+        status: { type: integer, format: int32, example: 404 }
+        detail: { type: string, example: No customer is registered with that phone number. }
+        instance: { type: string, format: uri }
+
+    Money:
+      type: string
+      description: Monto en soles, como texto decimal con 2 decimales para evitar errores de coma flotante.
+      pattern: "^\\d+\\.\\d{2}$"
+      example: "35.91"
+
+    # ---------- Customers ----------
+    AccountStatus:
+      type: object
+      required: [customerName, campaigns, grandTotal]
+      properties:
+        customerName: { type: string, example: Gaby }
+        campaigns:
+          type: array
+          items: { $ref: "#/components/schemas/CampaignAccount" }
+        grandTotal: { $ref: "#/components/schemas/Money" }
+
+    CampaignAccount:
+      type: object
+      required: [campaignId, number, catalog, groups, soldOutItems, unpricedItems, total]
+      properties:
+        campaignId: { type: string, description: Nombre de la pestaña en el Sheet., example: C-11-pacifika }
+        number: { type: integer, format: int32, example: 11 }
+        catalog: { $ref: "#/components/schemas/Catalog" }
+        paymentDueDate:
+          type: string
+          format: date
+          nullable: true
+          description: Fecha límite de pago; nula si aún no está definida.
+          example: "2026-10-15"
+        groups:
+          type: array
+          items: { $ref: "#/components/schemas/RecipientGroup" }
+        soldOutItems:
+          type: array
+          items: { $ref: "#/components/schemas/GarmentReference" }
+        unpricedItems:
+          type: array
+          items: { $ref: "#/components/schemas/GarmentReference" }
+        total: { $ref: "#/components/schemas/Money" }
+
+    Catalog:
+      type: string
+      enum: [PACIFIKA, CARMEL]
+
+    RecipientGroup:
+      type: object
+      description: Prendas de una misma destinataria. `recipient` nulo significa que son de la propia clienta.
+      required: [items, subtotal]
+      properties:
+        recipient: { type: string, nullable: true, example: Ana }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Garment" }
+        subtotal: { $ref: "#/components/schemas/Money" }
+
+    Garment:
+      type: object
+      required: [product, amount, status]
+      properties:
+        product: { type: string, example: Vestido lila }
+        size: { type: string, nullable: true, example: XS }
+        amount: { $ref: "#/components/schemas/Money" }
+        status: { $ref: "#/components/schemas/GarmentStatus" }
+
+    GarmentStatus:
+      type: string
+      description: Solo los estados cobrables aparecen en `items`.
+      enum: [PENDING, DELIVERED]
+
+    GarmentReference:
+      type: object
+      required: [product]
+      properties:
+        product: { type: string, example: Vestido azul }
+        size: { type: string, nullable: true, example: S }
+        recipient: { type: string, nullable: true, example: Ana }
+
+    # ---------- Conversations ----------
+    ConversationMessageRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          example: hola cuanto era lo mio?
+
+    ConversationReply:
+      type: object
+      required: [toolsUsed, guardTriggered, paused]
+      properties:
+        reply:
+          type: string
+          nullable: true
+          description: Texto que se enviaría por WhatsApp; nulo si no se responde.
+        toolsUsed:
+          type: array
+          items: { type: string, example: getAccountStatus }
+        guardTriggered:
+          type: boolean
+          description: True si la guardia de montos reemplazó la respuesta del modelo.
+        paused:
+          type: boolean
+          description: True si la conversación está pausada al terminar el turno.
+
+    ConversationPause:
+      type: object
+      required: [pausedUntil]
+      properties:
+        pausedUntil: { type: string, format: date-time, example: "2026-10-02T22:15:00Z" }
+
+    # ---------- WhatsApp (formato de Meta, snake_case) ----------
+    WhatsAppWebhookEvent:
+      type: object
+      additionalProperties: true
+      required: [object, entry]
+      properties:
+        object: { type: string, example: whatsapp_business_account }
+        entry:
+          type: array
+          items: { $ref: "#/components/schemas/WhatsAppEntry" }
+
+    WhatsAppEntry:
+      type: object
+      additionalProperties: true
+      properties:
+        id: { type: string, description: WABA ID. }
+        changes:
+          type: array
+          items: { $ref: "#/components/schemas/WhatsAppChange" }
+
+    WhatsAppChange:
+      type: object
+      additionalProperties: true
+      properties:
+        field: { type: string, description: "messages, smb_message_echoes u otros.", example: messages }
+        value: { $ref: "#/components/schemas/WhatsAppChangeValue" }
+
+    WhatsAppChangeValue:
+      type: object
+      additionalProperties: true
+      properties:
+        messaging_product: { type: string, example: whatsapp }
+        metadata: { $ref: "#/components/schemas/WhatsAppMetadata" }
+        contacts:
+          type: array
+          items: { $ref: "#/components/schemas/WhatsAppContact" }
+        messages:
+          type: array
+          items: { $ref: "#/components/schemas/WhatsAppInboundMessage" }
+        message_echoes:
+          type: array
+          items: { $ref: "#/components/schemas/WhatsAppMessageEcho" }
+        statuses:
+          type: array
+          items: { type: object, additionalProperties: true }
+
+    WhatsAppMetadata:
+      type: object
+      additionalProperties: true
+      properties:
+        display_phone_number: { type: string }
+        phone_number_id: { type: string }
+
+    WhatsAppContact:
+      type: object
+      additionalProperties: true
+      properties:
+        wa_id: { type: string }
+        profile:
+          type: object
+          additionalProperties: true
+          properties:
+            name: { type: string }
+
+    WhatsAppInboundMessage:
+      type: object
+      additionalProperties: true
+      properties:
+        from: { type: string, example: "51911111111" }
+        id: { type: string, example: wamid.TEST001 }
+        timestamp: { type: string, example: "1790900000" }
+        type: { type: string, description: "text, image, audio, sticker, etc.", example: text }
+        text: { $ref: "#/components/schemas/WhatsAppText" }
+
+    WhatsAppText:
+      type: object
+      additionalProperties: true
+      properties:
+        body: { type: string }
+
+    WhatsAppMessageEcho:
+      type: object
+      additionalProperties: true
+      description: Mensaje enviado por la dueña desde la app de WhatsApp Business (coexistencia).
+      properties:
+        from: { type: string }
+        to: { type: string, example: "51911111111" }
+        id: { type: string }
+        timestamp: { type: string }
+        type: { type: string }
+
+  examples:
+    WhatsAppTextMessage:
+      summary: Mensaje de texto de una clienta
+      value:
+        object: whatsapp_business_account
+        entry:
+          - id: WABA_ID
+            changes:
+              - field: messages
+                value:
+                  messaging_product: whatsapp
+                  metadata: { display_phone_number: "15550000000", phone_number_id: TEST_PHONE_NUMBER_ID }
+                  contacts: [{ wa_id: "51911111111", profile: { name: Gaby } }]
+                  messages:
+                    - from: "51911111111"
+                      id: wamid.TEST001
+                      timestamp: "1790900000"
+                      type: text
+                      text: { body: "hola cuanto era lo mio?" }

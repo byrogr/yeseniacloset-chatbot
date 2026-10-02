@@ -1,3 +1,10 @@
+quarkus:
+  rest:
+    path: /api/v1
+  http:
+    access-log:
+      enabled: false
+
 sheets:
   spreadsheet-id: ${SHEETS_SPREADSHEET_ID}
   credentials-file: ${SHEETS_CREDENTIALS_FILE:}

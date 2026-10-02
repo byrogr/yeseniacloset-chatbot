@@ -58,6 +58,10 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-rest</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-hibernate-validator</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.google.apis</groupId>
@@ -153,25 +157,25 @@
                 <version>${openapi-generator-plugin.version}</version>
                 <executions>
                     <execution>
-                        <id>account-status-api</id>
+                        <id>chatbot-api</id>
                         <goals>
                             <goal>generate</goal>
                         </goals>
                         <configuration>
-                            <inputSpec>${project.basedir}/src/main/resources/openapi/account-status-api.yaml</inputSpec>
+                            <inputSpec>${project.basedir}/src/main/resources/openapi/openapi.yml</inputSpec>
                             <generatorName>jaxrs-spec</generatorName>
                             <output>${project.build.directory}/generated-sources/openapi</output>
                             <addCompileSourceRoot>true</addCompileSourceRoot>
-                            <apiPackage>pe.rmsolutions.chatbot.ops.api</apiPackage>
-                            <modelPackage>pe.rmsolutions.chatbot.ops.api.model</modelPackage>
-                            <invokerPackage>pe.rmsolutions.chatbot.ops.api.invoker</invokerPackage>
+                            <generateSupportingFiles>false</generateSupportingFiles>
+                            <apiPackage>pe.rmsolutions.chatbot.api</apiPackage>
+                            <modelPackage>pe.rmsolutions.chatbot.api.model</modelPackage>
                             <configOptions>
                                 <sourceFolder>src/gen/java</sourceFolder>
                                 <interfaceOnly>true</interfaceOnly>
                                 <useJakartaEe>true</useJakartaEe>
                                 <returnResponse>true</returnResponse>
                                 <generatePom>false</generatePom>
-                                <useBeanValidation>false</useBeanValidation>
+                                <useBeanValidation>true</useBeanValidation>
                                 <useSwaggerAnnotations>false</useSwaggerAnnotations>
                                 <useTags>true</useTags>
                                 <openApiNullable>false</openApiNullable>
