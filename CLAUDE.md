@@ -25,8 +25,9 @@ Bot de WhatsApp para un negocio de venta de ropa por catálogo (Pacifika y Carme
 | `agent` | AI Service de LangChain4j, tools, memoria, contexto de la clienta | 2 |
 | `whatsapp` | Webhook, firma HMAC, deduplicación, envío, pausa por eco | 3 |
 | `ops` | Health checks y endpoints de desarrollo (solo perfil `dev`) | 1+ |
+| `api`, `api.model` | Interfaces y DTOs **generados** desde `openapi.yml` (no se editan a mano) | 1.1 |
 
-Regla de dependencias: `account` no depende de `whatsapp` ni de `agent`; `sheets` no depende de nadie. El dominio se prueba sin red.
+Regla de dependencias: `account` no depende de `whatsapp` ni de `agent`; `sheets` no depende de nadie. El dominio se prueba sin red. Solo los subpaquetes `web` y `mapper` dependen de `api` / `api.model`.
 
 ### Subpaquetes dentro de cada paquete de dominio
 
@@ -35,11 +36,11 @@ Dentro de cada paquete de la tabla anterior, el código se separa por responsabi
 | Subpaquete | Contiene |
 | --- | --- |
 | `model` | Records de valor inmutables del dominio (sin lógica, sin Lombok). |
-| `repository` | Puertos de acceso a datos externos (interfaces) y sus adaptadores (p. ej. `WorkbookSource` / `GoogleSheetsWorkbookSource`), más las excepciones propias de esa fuente. |
+| `repository` | Puertos de acceso a datos o servicios externos (interfaces) y sus adaptadores (p. ej. `WorkbookSource` / `GoogleSheetsWorkbookSource`), más las excepciones propias de esa fuente. |
 | `services` | Lógica de negocio: casos de uso, parseo, orquestación y caché. |
 | `utils` | Funciones estáticas y sin estado, sin inyección CDI (`@UtilityClass` o clases `final` con métodos estáticos). |
 | `config` | `@ConfigMapping` y `@Produces` de infraestructura (p. ej. `Clock`). |
-| `web` | Puntos de entrada: recursos JAX-RS y health checks. Solo delegan, sin lógica de negocio. |
+| `web` | Puntos de entrada: recursos JAX-RS que implementan las interfaces generadas, filtros, `ExceptionMapper`s y health checks. Solo delegan, sin lógica de negocio. |
 | `mapper` | Interfaces MapStruct que convierten entre records de dominio y DTOs generados del contrato OpenAPI. |
 
 Ejemplo actual: `sheets.model.{CampaignId,Customer,OrderRow,OrderStatus,ParsedWorkbook,RawWorkbook}`, `sheets.repository.{WorkbookSource,GoogleSheetsWorkbookSource,WorkbookUnavailableException}`, `sheets.services.{WorkbookParser,WorkbookProvider}`, `sheets.utils.{NameNormalizer,PhoneNormalizer,TabNamePolicy}`, `sheets.config.{SheetsConfig,ClockProducer}`; `account.model.{AccountStatus,CampaignAccount,Garment,GarmentInfo,RecipientGroup}`, `account.services.AccountStatusService`; `ops.web.{AccountStatusResource,SheetsReadinessCheck}`, `ops.mapper.AccountStatusMapper`.
@@ -60,7 +61,7 @@ Las fases futuras (`agent`, `whatsapp`) siguen esta misma convención desde su p
 - Nomenclatura técnica siempre en inglés: clases, interfaces, métodos, variables y campos (`AccountStatus`, `Garment`, `Gateway`, `Parser`). Se exceptúa el valor textual exacto que viene del Google Sheet (los estados `Pendiente/Entregado/Pagado/Agotado/Cancelado`, el nombre de la pestaña `Clientas`): eso es parte del contrato de datos con el Sheet, no una decisión de naming, y se mantiene en español tal cual lo escribe la tienda.
 - Records de Java para objetos de valor inmutables (no llevan Lombok: ya son inmutables por diseño).
 - Lombok en el resto de clases (servicios, componentes) para reducir boilerplate: `@RequiredArgsConstructor` para inyección de dependencias, `@Slf4j` para logging, etc. No usar `@Data`/`@Builder` sobre records.
-- MapStruct para mapear entre modelos (p. ej. DTO generado de un contrato OpenAPI ↔ record de dominio). No escribir mappers a mano si MapStruct puede generarlos.
+- MapStruct para mapear entre modelos (DTO generado del contrato OpenAPI ↔ record de dominio). No escribir mappers a mano si MapStruct puede generarlos.
 - Montos: `BigDecimal` con escala 2 y `RoundingMode.HALF_UP`. Nunca `double` para dinero.
 - Fechas: `LocalDate`; el Sheet las entrega como texto `dd/MM/yyyy`.
 - Inyectar `java.time.Clock` donde haya lógica dependiente del tiempo, para poder probarla.
@@ -69,10 +70,42 @@ Las fases futuras (`agent`, `whatsapp`) siguen esta misma convención desde su p
 
 ## APIs REST: API First
 
-- Todo endpoint REST se define primero en un contrato OpenAPI (`src/main/resources/openapi/*.yaml`), y el código se genera o se valida contra ese contrato antes de implementarlo.
-- El recurso JAX-RS implementa la interfaz generada a partir del contrato; no se escriben DTOs de request/response a mano si el generador ya los produce.
-- MapStruct convierte entre los DTOs generados del contrato y los records de dominio (p. ej. `AccountStatus` → DTO de respuesta).
-- Esto aplica a endpoints de producto y también a los de desarrollo (`ops`), salvo que se indique lo contrario para un caso puntual.
+### Un solo contrato
+
+- Todo el backend se describe en **un único archivo**: `src/main/resources/openapi/openapi.yml` (OpenAPI 3.0.3). Nunca crear un contrato por endpoint ni por fase.
+- Flujo: primero se diseña o modifica el contrato, luego se genera el código, luego se implementa. Una fase que agrega endpoints empieza editando este archivo.
+- El código generado va a `pe.rmsolutions.chatbot.api` (interfaces) y `pe.rmsolutions.chatbot.api.model` (DTOs) y nunca se edita a mano.
+- Los recursos del subpaquete `web` implementan las interfaces generadas; los DTOs de request/response son siempre los generados. Los mappers del subpaquete `mapper` (MapStruct) convierten DTO ↔ dominio.
+- El contrato se versiona con la API: `info.version` sigue SemVer (minor para cambios compatibles, major para incompatibles).
+
+### Ruta base y versionado
+
+- `servers.url: /api/v1` y `quarkus.rest.path: /api/v1`. Los paths del contrato son relativos (`/customers/...`), sin repetir el prefijo.
+- La versión mayor va en la URL. Los cambios compatibles (campos opcionales nuevos, endpoints nuevos) se agregan a `v1`. Un cambio incompatible requiere `v2` y se discute antes de hacerlo.
+- Los endpoints del framework (`/q/health`, `/q/openapi`) quedan fuera del contrato.
+
+### Diseño de recursos
+
+- Paths con sustantivos en plural y kebab-case, sin verbos: `/customers/{phone}/account-status`, `/conversations/{phone}/messages`.
+- Sub-recursos para relaciones (`/conversations/{phone}/pause`); las acciones se modelan como recursos (`DELETE .../pause` en vez de `POST .../resume`).
+- Métodos con su semántica HTTP: `GET` lee, `POST` crea o procesa, `PUT` reemplaza, `PATCH` modifica parcialmente, `DELETE` elimina (idempotente).
+- Códigos: 200, 201 (con `Location`), 204, 400, 401, 403, 404, 409, 503. Nada de 200 con un error dentro del cuerpo.
+- Errores siempre en `application/problem+json` con el esquema `Problem` (RFC 9457), mediante `ExceptionMapper`s en el subpaquete `web`.
+
+### Uso del OpenAPI Spec
+
+- Cada operación tiene `tags`, `operationId` (camelCase, verbo + recurso, único), `summary` y `description`.
+- Reutilizar `components` (`schemas`, `parameters`, `responses`, `examples`); nada de esquemas inline repetidos.
+- Esquemas en PascalCase, propiedades en camelCase y enums en UPPER_SNAKE_CASE (en inglés: `PENDING`, no `Pendiente`; MapStruct traduce desde los valores del Sheet).
+- Marcar `required` y `nullable` explícitamente. Montos como `Money` (texto `^\d+\.\d{2}$`); fechas con `format: date` o `date-time` (ISO 8601).
+- Excepción: los payloads de terceros (webhook de Meta) conservan su formato original (snake_case, `hub.mode`) y llevan `additionalProperties: true`.
+- Operaciones de desarrollo: tag propio y `x-profile: dev`; su implementación lleva `@IfBuildProfile("dev")`, así que en producción no existen.
+- Lint obligatorio sin errores: `npx @stoplight/spectral-cli lint src/main/resources/openapi/openapi.yml` (reglas en `.spectral.yaml`).
+
+### Datos personales en la API
+
+- Los celulares solo pueden ir en el path de endpoints `dev`. Nunca en query strings ni en endpoints de producción.
+- El access log HTTP queda deshabilitado (lo está por defecto en Quarkus); no activarlo sin enmascarar los paths.
 
 ## Seguridad y privacidad
 
@@ -86,7 +119,9 @@ Las fases futuras (`agent`, `whatsapp`) siguen esta misma convención desde su p
 ./mvnw quarkus:dev          # modo desarrollo (lee el Sheet real con las variables de entorno)
 ./mvnw test                 # tests unitarios y de componente
 ./mvnw verify               # build completo
+./mvnw verify -Peval        # evaluación del asistente contra el modelo real (Fase 2)
 ./mvnw package -Dnative     # build nativo (requiere GraalVM o contenedor)
+npx @stoplight/spectral-cli lint src/main/resources/openapi/openapi.yml   # lint del contrato
 ```
 
 Variables de entorno en desarrollo:
@@ -102,11 +137,13 @@ export SHEETS_CREDENTIALS_FILE=$HOME/.config/chatbot-pedidos/sa.json
 - Antes de escribir código, presenta un plan y espera confirmación.
 - Después de cada paso, corre `./mvnw test`; no avances con tests en rojo.
 - Si la spec es ambigua o contradice este archivo, pregunta antes de decidir.
+- No crear commits (`git commit`) ni hacer `git push`. En su lugar, al terminar el trabajo entrega un plan de commits: para cada commit propuesto, el mensaje y la lista exacta de archivos a agregar (`git add`). El dueño del repo revisa y ejecuta los commits y el push.
 
 ## Estado
 
 - [x] Fase 0: Sheet, Meta (número de prueba), Google Cloud y Azure configurados.
 - [x] Fase 1: lectura del Sheet y dominio (`docs/specs/fase-1.md`). Pendiente la verificación manual contra el Sheet real (ver tabla de criterios de aceptación) y la deuda técnica de cobertura de `GoogleSheetsWorkbookSource` (`docs/notas/cobertura-google-sheets.md`).
-- [ ] Fase 2: agente de IA.
-- [ ] Fase 3: canal WhatsApp.
+- [x] Fase 1.1: contrato OpenAPI único (`docs/specs/fase-1-1.md`). Pendiente la prueba manual con `curl` contra el Sheet real. Los recursos `dev` usan `@IfBuildProfile(anyOf = {"dev", "test"})` para poder probarlos por HTTP.
+- [ ] Fase 2: agente de IA (`docs/specs/fase-2.md`).
+- [ ] Fase 3: canal WhatsApp (`docs/specs/fase-3.md`).
 - [ ] Fase 4: despliegue y piloto.
