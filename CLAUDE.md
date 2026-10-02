@@ -28,6 +28,24 @@ Bot de WhatsApp para un negocio de venta de ropa por catálogo (Pacifika y Carme
 
 Regla de dependencias: `account` no depende de `whatsapp` ni de `agent`; `sheets` no depende de nadie. El dominio se prueba sin red.
 
+### Subpaquetes dentro de cada paquete de dominio
+
+Dentro de cada paquete de la tabla anterior, el código se separa por responsabilidad técnica en estos subpaquetes (se crean solo los que el dominio necesita; no todos aplican a todos):
+
+| Subpaquete | Contiene |
+| --- | --- |
+| `model` | Records de valor inmutables del dominio (sin lógica, sin Lombok). |
+| `repository` | Puertos de acceso a datos externos (interfaces) y sus adaptadores (p. ej. `WorkbookSource` / `GoogleSheetsWorkbookSource`), más las excepciones propias de esa fuente. |
+| `services` | Lógica de negocio: casos de uso, parseo, orquestación y caché. |
+| `utils` | Funciones estáticas y sin estado, sin inyección CDI (`@UtilityClass` o clases `final` con métodos estáticos). |
+| `config` | `@ConfigMapping` y `@Produces` de infraestructura (p. ej. `Clock`). |
+| `web` | Puntos de entrada: recursos JAX-RS y health checks. Solo delegan, sin lógica de negocio. |
+| `mapper` | Interfaces MapStruct que convierten entre records de dominio y DTOs generados del contrato OpenAPI. |
+
+Ejemplo actual: `sheets.model.{CampaignId,Customer,OrderRow,OrderStatus,ParsedWorkbook,RawWorkbook}`, `sheets.repository.{WorkbookSource,GoogleSheetsWorkbookSource,WorkbookUnavailableException}`, `sheets.services.{WorkbookParser,WorkbookProvider}`, `sheets.utils.{NameNormalizer,PhoneNormalizer,TabNamePolicy}`, `sheets.config.{SheetsConfig,ClockProducer}`; `account.model.{AccountStatus,CampaignAccount,Garment,GarmentInfo,RecipientGroup}`, `account.services.AccountStatusService`; `ops.web.{AccountStatusResource,SheetsReadinessCheck}`, `ops.mapper.AccountStatusMapper`.
+
+Las fases futuras (`agent`, `whatsapp`) siguen esta misma convención desde su primer commit.
+
 ## Contrato del Google Sheet (resumen)
 
 - Un archivo por año; su ID va en configuración (`sheets.spreadsheet-id`).

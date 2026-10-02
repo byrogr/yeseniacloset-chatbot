@@ -6,7 +6,7 @@ info:
     Available only under the `dev` profile.
   version: "1.0.0"
 paths:
-  /dev/customers/{phone}/account-status:
+  /api/v1/customers/{phone}/account-status:
     get:
       operationId: getCustomerAccountStatus
       summary: Get a customer's account status
