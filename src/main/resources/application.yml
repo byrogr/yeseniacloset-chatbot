@@ -1,0 +1,12 @@
+sheets:
+  spreadsheet-id: ${SHEETS_SPREADSHEET_ID}
+  credentials-file: ${SHEETS_CREDENTIALS_FILE:}
+  credentials-json: ${SHEETS_CREDENTIALS_JSON:}
+  cache-ttl: 60s
+  stale-max: 30m
+
+"%test":
+  sheets:
+    spreadsheet-id: test-spreadsheet
+    credentials-file: unused
+    credentials-json: ""

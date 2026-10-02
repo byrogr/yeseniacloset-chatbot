@@ -1,0 +1,42 @@
+{
+  "Clientas": [
+    ["Nombre", "Celular"],
+    ["Gaby", "51911111111"],
+    ["Roger", "51933333333"],
+    ["Mariale R.", "51922222222"],
+    ["José Pérez", "51944444444"],
+    ["Lucía", "51955555555"],
+    ["Ana Torres", "51 966-666-666"]
+  ],
+  "C-10-pacifika": [
+    ["Producto", "Talla", "Código", "Página", "Clienta", "Para", "Fecha de pedido", "Fecha de pago", "Estado", "Precio", "%", "Dscto.", "Monto total"],
+    ["Casaca vieja", "M", "", "", "Gaby", "", "", "", "Pagado", "", "", "", "10.00"],
+    ["Gorro", "U", "", "", "Roger", "", "", "", "Agotado", "", "", "", ""]
+  ],
+  "C-11-pacifika": [
+    ["Producto", "Talla", "Código", "Página", "Clienta", "Para", "Fecha de pedido", "Fecha de pago", "Estado", "Precio", "%", "Dscto.", "Monto total"],
+    ["Blusa blanca", "M", "", "", "Gaby", "", "", "15/10/2026", "Pendiente", "", "", "", "19.90"],
+    ["Vestido lila", "M", "", "", "Gaby", "Ana", "", "15/10/2026", "Pendiente", "", "", "", "35.91"],
+    ["Ropa de baño", "M", "", "", "Gaby", "Ana", "", "15/10/2026", "Entregado", "", "", "", "39.92"],
+    ["Vestido azul", "S", "", "", "Gaby", "", "", "", "Agotado", "", "", "", ""],
+    ["Casaca", "M", "", "", "Gaby", "Lucía", "", "20/10/2026", "Pagado", "", "", "", "25.00"],
+    ["Conjunto negro", "M", "", "", "Roger", "", "", "15/10/2026", "Pendiente", "", "", "", "71.91"],
+    ["Chompa", "M", "", "", "Roger", "", "", "", "Pendiente"],
+    ["Top", "M", "", "", "Roger", "", "", "", "Cancelado", "", "", "", "45.00"],
+    ["Polo rosa", "M", "", "", "MARIALE R.", "", "", "15/10/2026", "Pendiente", "", "", "", "25.00"],
+    ["Enterizo negro", "S", "", "", "MARIALE R.", "", "", "15/10/2026", "Pendiente", "", "", "", ""],
+    ["Bolso", "", "", "", "Desconocida", "", "", "", "Pendiente", "", "", "", "10.00"],
+    ["Cartera", "", "", "", "Gaby", "Cartera", "", "", "Reservado", "", "", "", "30.00"],
+    ["Casaca", "M", "", "", "Jose Perez", "", "", "15/10/2026", "Pendiente", "", "", "", "89.91"]
+  ],
+  "C-11-carmel": [
+    ["Producto", "Talla", "Código", "Página", "Clienta", "Para", "Fecha de pedido", "Fecha de pago", "Estado", "Precio", "%", "Dscto.", "Monto total"],
+    ["Pantalón", "M", "", "", "Gaby", "", "", "20/10/2026", "Pendiente", "", "", "", "59.90"],
+    ["Blusa crema", "M", "", "", "Gaby", "", "", "25/10/2026", "Entregado", "", "", "", "19.90"],
+    ["Chaqueta", "M", "", "", "MARIALE R.", "", "", "22/10/2026", "Pagado", "", "", "", "50.00"]
+  ],
+  "C-12-Carmel": [
+    ["Producto", "Talla", "Código", "Página", "Clienta", "Para", "Fecha de pedido", "Fecha de pago", "Estado", "Precio", "%", "Dscto.", "Monto total"],
+    ["Bufanda", "U", "", "", "Roger", "", "", "", "Pendiente", "", "", "", "15.00"]
+  ]
+}
