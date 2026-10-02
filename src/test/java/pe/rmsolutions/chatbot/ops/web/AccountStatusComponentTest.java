@@ -14,9 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * ({@link pe.rmsolutions.chatbot.sheets.repository.FixtureWorkbookSource} &rarr; {@code WorkbookParser}
  * &rarr; {@code WorkbookProvider} &rarr; {@link AccountStatusService}) en el perfil {@code test}.
  *
- * <p>No se prueba {@code GET /api/v1/customers/{phone}/account-status} por HTTP porque el recurso
- * está anotado con {@code @IfBuildProfile("dev")} y el perfil activo durante los tests es
- * {@code test}; la propia spec (sección 6.4) indica probar el servicio inyectado en ese caso.
+ * <p>El endpoint HTTP se prueba en {@link CustomerResourceTest}.
  *
  * @author Roger Rojas - roger.rojas@rmsolutions.pe
  */

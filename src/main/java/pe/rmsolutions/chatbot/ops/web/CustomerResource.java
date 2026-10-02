@@ -5,31 +5,30 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
 import pe.rmsolutions.chatbot.account.services.AccountStatusService;
-import pe.rmsolutions.chatbot.ops.api.CustomersApi;
+import pe.rmsolutions.chatbot.account.services.CustomerNotFoundException;
+import pe.rmsolutions.chatbot.api.CustomersApi;
 import pe.rmsolutions.chatbot.ops.mapper.AccountStatusMapper;
-import pe.rmsolutions.chatbot.sheets.repository.WorkbookUnavailableException;
 
 /**
- * Endpoint de desarrollo que expone el estado de cuenta leído del Sheet. Solo existe en el
- * perfil {@code dev}; no debe llegar al build de producción.
+ * Endpoint de desarrollo que expone el estado de cuenta leído del Sheet. Existe en los perfiles
+ * {@code dev} y {@code test} (para probarlo por HTTP); no llega al build de producción.
  *
  * @author Roger Rojas - roger.rojas@rmsolutions.pe
  */
 @ApplicationScoped
-@IfBuildProfile("dev")
+@IfBuildProfile(anyOf = {"dev", "test"})
 @RequiredArgsConstructor
-public class AccountStatusResource implements CustomersApi {
+public class CustomerResource implements CustomersApi {
 
     private final AccountStatusService service;
     private final AccountStatusMapper mapper;
 
     @Override
     public Response getCustomerAccountStatus(String phone) {
-        try {
-            var status = service.getAccountStatus(phone);
-            return Response.ok(mapper.toDto(status)).build();
-        } catch (WorkbookUnavailableException e) {
-            return Response.status(Response.Status.SERVICE_UNAVAILABLE).build();
+        var status = service.getAccountStatus(phone);
+        if (!status.registered()) {
+            throw new CustomerNotFoundException();
         }
+        return Response.ok(mapper.toDto(status)).build();
     }
 }
