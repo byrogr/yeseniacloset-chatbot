@@ -136,7 +136,7 @@ quarkus:
   container-image:
     registry: ghcr.io
     group: ${CONTAINER_IMAGE_GROUP:}   # usuario de GitHub, en minúsculas
-    name: chatbot-pedidos
+    name: yeseniacloset-chatbot
     build: false
     push: false
   jib:
@@ -180,7 +180,7 @@ Comportamiento con `owner-contact-phone` configurado:
 Texto de derivación determinista, no redactado por el LLM:
 
 - Si `handOffToOwner` se ejecutó en el turno, `ChatService` **reemplaza** la respuesta del modelo por `HandoffMessages.handoff()`, en ambos modos. Mismo principio que los montos: el enlace y el número nunca pasan por el LLM, así que no puede copiarlos mal ni inventarlos.
-- `prompts/system-prompt.txt`: en el tipo B y la regla 6, cambiar "responde que {ownerName} le escribirá pronto" por "responde en una sola línea breve". No se agrega ninguna variable nueva al prompt.
+- `prompts/system-prompt.txt`: en el tipo B y la regla de `registered=false` (hoy la 7), cambiar "responde que {ownerName} le escribirá pronto" por "responde en una sola línea breve". No se agrega ninguna variable nueva al prompt.
 - Volver a correr la eval (`./mvnw verify -Peval`): debe seguir en 48/48 con la guardia en 0. La eval mide la tool elegida, así que el reemplazo del texto no la afecta, pero el prompt cambió.
 
 Tests:
@@ -212,9 +212,9 @@ permissions:
 environment: production
 ```
 
-1. Construye y publica la imagen con Jib en `ghcr.io/<usuario>/chatbot-pedidos:<sha>` y `:latest`, autenticando con `GITHUB_TOKEN` (`QUARKUS_CONTAINER_IMAGE_USERNAME=${{ github.actor }}`, `QUARKUS_CONTAINER_IMAGE_PASSWORD=${{ secrets.GITHUB_TOKEN }}`).
+1. Construye y publica la imagen con Jib en `ghcr.io/<usuario>/yeseniacloset-chatbot:<sha>` y `:latest`, autenticando con `GITHUB_TOKEN` (`QUARKUS_CONTAINER_IMAGE_USERNAME=${{ github.actor }}`, `QUARKUS_CONTAINER_IMAGE_PASSWORD=${{ secrets.GITHUB_TOKEN }}`).
 2. `azure/login@v2` con OIDC (`client-id`, `tenant-id` y `subscription-id` desde variables del environment, sin secretos).
-3. `az containerapp update -n ca-chatbot-pedidos -g rg-chatbot-pedidos --image ghcr.io/<usuario>/chatbot-pedidos:<sha>`.
+3. `az containerapp update -n ca-chatbot-pedidos -g rg-chatbot-pedidos --image ghcr.io/<usuario>/yeseniacloset-chatbot:<sha>`.
 4. Espera a que la revisión nueva esté `Healthy` y llama a `/q/health/ready` de la URL pública; si falla, el job falla.
 
 El environment `production` de GitHub debe tener al dueño del repo como revisor obligatorio, de modo que cada despliegue requiera su aprobación.
