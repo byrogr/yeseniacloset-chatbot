@@ -43,7 +43,7 @@ jobs:
           sha="$(git rev-parse HEAD)"
           echo "owner=$owner" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "ref=ghcr.io/$owner/chatbot-pedidos:$sha" >> "$GITHUB_OUTPUT"
+          echo "ref=ghcr.io/$owner/yeseniacloset-chatbot:$sha" >> "$GITHUB_OUTPUT"
 
       - name: Construir y publicar la imagen en GHCR
         env:
