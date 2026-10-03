@@ -43,7 +43,7 @@ Dentro de cada paquete de la tabla anterior, el código se separa por responsabi
 | `web` | Puntos de entrada: recursos JAX-RS que implementan las interfaces generadas, filtros, `ExceptionMapper`s y health checks. Solo delegan, sin lógica de negocio. |
 | `mapper` | Interfaces MapStruct que convierten entre records de dominio y DTOs generados del contrato OpenAPI. |
 
-Ejemplo actual: `sheets.model.{CampaignId,Customer,OrderRow,OrderStatus,ParsedWorkbook,RawWorkbook}`, `sheets.repository.{WorkbookSource,GoogleSheetsWorkbookSource,WorkbookUnavailableException}`, `sheets.services.{WorkbookParser,WorkbookProvider}`, `sheets.utils.{NameNormalizer,PhoneNormalizer,TabNamePolicy}`, `sheets.config.{SheetsConfig,ClockProducer}`; `account.model.{AccountStatus,CampaignAccount,Garment,GarmentInfo,RecipientGroup}`, `account.services.AccountStatusService`; `ops.web.{AccountStatusResource,SheetsReadinessCheck}`, `ops.mapper.AccountStatusMapper`.
+Ejemplo actual: `sheets.model.{CampaignId,Customer,OrderRow,OrderStatus,ParsedWorkbook,RawWorkbook}`, `sheets.repository.{WorkbookSource,GoogleSheetsWorkbookSource,WorkbookUnavailableException}`, `sheets.services.{WorkbookParser,WorkbookProvider}`, `sheets.utils.{NameNormalizer,PhoneNormalizer,TabNamePolicy}`, `sheets.config.{SheetsConfig,ClockProducer}`; `account.model.{AccountStatus,CampaignAccount,Garment,GarmentInfo,RecipientGroup}`, `account.services.AccountStatusService`; `ops.web.{AccountStatusResource,SheetsReadinessCheck}`, `ops.mapper.AccountStatusMapper`. Canal: `whatsapp.web.{WhatsAppWebhookResource,WebhookSignatureFilter}`, `whatsapp.services.{WebhookEventHandler,InboundDispatcher,InboundMessageProcessor,MessageDeduplicator}`, `whatsapp.repository.{OutboundMessenger,CloudApiMessenger,GraphApiClient}`.
 
 Las fases futuras (`agent`, `whatsapp`) siguen esta misma convención desde su primer commit.
 
@@ -98,7 +98,7 @@ Las fases futuras (`agent`, `whatsapp`) siguen esta misma convención desde su p
 - Reutilizar `components` (`schemas`, `parameters`, `responses`, `examples`); nada de esquemas inline repetidos.
 - Esquemas en PascalCase, propiedades en camelCase y enums en UPPER_SNAKE_CASE (en inglés: `PENDING`, no `Pendiente`; MapStruct traduce desde los valores del Sheet).
 - Marcar `required` y `nullable` explícitamente. Montos como `Money` (texto `^\d+\.\d{2}$`); fechas con `format: date` o `date-time` (ISO 8601).
-- Excepción: los payloads de terceros (webhook de Meta) conservan su formato original (snake_case, `hub.mode`) y llevan `additionalProperties: true`.
+- Excepción: los payloads de terceros (webhook de Meta) conservan su formato original (snake_case, `hub.mode`). **No** se declara `additionalProperties: true`: el generador crea DTOs que extienden `HashMap` y no deserializan los campos tipados. Las propiedades extra ya se aceptan por defecto en OpenAPI 3.0 y Jackson las ignora (`quarkus.jackson.fail-on-unknown-properties: false`).
 - Operaciones de desarrollo: tag propio y `x-profile: dev`; su implementación lleva `@IfBuildProfile("dev")`, así que en producción no existen.
 - Lint obligatorio sin errores: `npx @stoplight/spectral-cli lint src/main/resources/openapi/openapi.yml` (reglas en `.spectral.yaml`).
 
@@ -129,6 +129,10 @@ Variables de entorno en desarrollo:
 ```bash
 export SHEETS_SPREADSHEET_ID=...
 export SHEETS_CREDENTIALS_FILE=$HOME/.config/chatbot-pedidos/sa.json
+export WHATSAPP_PHONE_NUMBER_ID=...   # Fase 3
+export WHATSAPP_ACCESS_TOKEN=...
+export WHATSAPP_APP_SECRET=...
+export WHATSAPP_VERIFY_TOKEN=...      # valor aleatorio largo, el mismo que se pone en Meta
 ```
 
 ## Cómo trabajar en este repo
@@ -145,7 +149,7 @@ export SHEETS_CREDENTIALS_FILE=$HOME/.config/chatbot-pedidos/sa.json
 - [x] Fase 1: lectura del Sheet y dominio (`docs/specs/fase-1.md`). Pendiente la verificación manual contra el Sheet real (ver tabla de criterios de aceptación) y la deuda técnica de cobertura de `GoogleSheetsWorkbookSource` (`docs/notas/cobertura-google-sheets.md`).
 - [x] Fase 1.1: contrato OpenAPI único (`docs/specs/fase-1-1.md`). Pendiente la prueba manual con `curl` contra el Sheet real. Los recursos `dev` usan `@IfBuildProfile(anyOf = {"dev", "test"})` para poder probarlos por HTTP.
 - [x] Fase 2: agente de IA (`docs/specs/fase-2.md`). Eval contra el modelo real: 48/48, guardia 0, p95 2,7 s (`./mvnw verify -Peval` con las variables `FOUNDRY_*`). Pendiente la prueba manual con una clienta real. `FOUNDRY_ENDPOINT` debe ser la URL completa del deployment (`https://<recurso>.openai.azure.com/openai/deployments/<deployment>`). `FOUNDRY_API_VERSION` es la `api-version` que el portal muestra en el ejemplo del deployment.
-- [ ] Fase 3: canal WhatsApp (`docs/specs/fase-3.md`).
+- [x] Fase 3: canal WhatsApp (`docs/specs/fase-3.md`). Contrato en 1.1.0 (se quitó `additionalProperties: true` de los esquemas de Meta). Prueba con el número de prueba (sección 7 de la spec): webhook verificado por túnel y respuesta real entregada en WhatsApp a partir de un mensaje simulado y firmado desde Postman. Pendiente: mensaje real desde el celular (la app sin publicar solo recibe webhooks de prueba del panel; puede requerir publicarla en la Fase 4) y los chequeos de segundo mensaje, fuera de alcance y audio contra Meta. El formato de `smb_message_echoes` se tomó de la documentación de coexistencia y no se pudo probar con el número de prueba; los ecos `revoke`/`edit` también pausan.
   - Pendiente de IA Responsable: responder a los mensajes que no son texto (audio, imagen) con un aviso en vez de silencio; hoy la spec dice que no se responde.
 - [ ] Fase 4: despliegue y piloto.
   - Pendientes de IA Responsable: nota de transparencia en `docs/`; métricas en Application Insights (tasa de guardia y de derivaciones); volver a correr la eval ante cada cambio de modelo o prompt; definir con la dueña cómo se informa a las clientas del uso de IA y de Azure.
