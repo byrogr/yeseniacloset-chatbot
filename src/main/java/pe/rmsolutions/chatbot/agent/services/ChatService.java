@@ -13,6 +13,8 @@ import pe.rmsolutions.chatbot.agent.model.ChatReply;
 import pe.rmsolutions.chatbot.agent.model.GuardResult;
 import pe.rmsolutions.chatbot.agent.repository.ExpiringChatMemoryStore;
 import pe.rmsolutions.chatbot.agent.utils.MaskingUtils;
+import pe.rmsolutions.chatbot.observability.services.BotMetrics;
+import pe.rmsolutions.chatbot.observability.services.BotMetrics.TurnOutcome;
 import pe.rmsolutions.chatbot.sheets.repository.WorkbookUnavailableException;
 import pe.rmsolutions.chatbot.sheets.utils.PhoneNormalizer;
 
@@ -30,6 +32,8 @@ import java.util.Optional;
 @Slf4j
 public class ChatService {
 
+    static final String HAND_OFF_TOOL = "handOffToOwner";
+
     private final OrderAssistant assistant;
     private final ExpiringChatMemoryStore memoryStore;
     private final ConversationPauseRegistry pauseRegistry;
@@ -37,6 +41,8 @@ public class ChatService {
     private final AmountGuard amountGuard;
     private final AccountStatusFormatter formatter;
     private final AccountStatusService accountStatusService;
+    private final HandoffMessages messages;
+    private final BotMetrics metrics;
     private final BotConfig config;
 
     public ChatReply reply(String rawPhone, String message) {
@@ -48,6 +54,7 @@ public class ChatService {
         String masked = MaskingUtils.maskPhone(phone);
         if (pauseRegistry.isPaused(phone)) {
             log.info("Turno omitido para {}: conversación pausada", masked);
+            metrics.turn(TurnOutcome.PAUSED);
             return new ChatReply(Optional.empty(), List.of(), false, true);
         }
 
@@ -55,6 +62,7 @@ public class ChatService {
         boolean firstMessage = memoryStore.getMessages(phone).isEmpty();
         List<String> toolsUsed = List.of();
         boolean guardTriggered = false;
+        boolean failed = false;
         String text;
 
         turnContext.clear(phone);
@@ -63,24 +71,34 @@ public class ChatService {
             toolsUsed = result.toolExecutions().stream().map(t -> t.request().name()).toList();
             text = result.content();
 
-            GuardResult guard = amountGuard.check(text, turnContext.get(phone).orElse(null));
-            if (guard.status() == GuardResult.Status.VIOLATION) {
-                guardTriggered = true;
-                log.warn("Guardia de montos activada para {}: montos no permitidos {}", masked, guard.unknownAmounts());
-                AccountStatus status = turnContext.get(phone)
-                        .orElseGet(() -> accountStatusService.getAccountStatus(phone));
-                text = formatter.format(status, config.ownerName());
+            if (toolsUsed.contains(HAND_OFF_TOOL)) {
+                // El texto de derivación (y el enlace de la dueña) nunca lo redacta el modelo.
+                text = messages.handoff();
+            } else {
+                GuardResult guard = amountGuard.check(text, turnContext.get(phone).orElse(null));
+                if (guard.status() == GuardResult.Status.VIOLATION) {
+                    guardTriggered = true;
+                    metrics.guardTriggered();
+                    log.warn("Guardia de montos activada para {}: montos no permitidos {}",
+                            masked, guard.unknownAmounts());
+                    AccountStatus status = turnContext.get(phone)
+                            .orElseGet(() -> accountStatusService.getAccountStatus(phone));
+                    text = formatter.format(status);
+                }
             }
         } catch (WorkbookUnavailableException e) {
             log.error("Sheet no disponible al formatear el respaldo para {}", masked, e);
+            failed = true;
             text = fallbackAndPause(phone);
         } catch (RuntimeException e) {
             if (isContentFiltered(e)) {
                 log.warn("Mensaje de {} bloqueado por el filtro de contenido de Azure; se deriva a la dueña", masked);
-                pauseRegistry.pause(phone, config.pause().duration());
-                text = config.ownerName() + " te escribirá pronto.";
+                metrics.handoff();
+                pauseUnlessRedirecting(phone);
+                text = messages.handoff();
             } else {
                 log.error("Fallo del modelo para {}", masked, e);
+                failed = true;
                 text = fallbackAndPause(phone);
             }
         } finally {
@@ -91,8 +109,11 @@ public class ChatService {
             text = "Hola, soy el asistente automático de " + config.ownerName() + ".\n" + text;
         }
         boolean paused = pauseRegistry.isPaused(phone);
+        long latencyMs = (System.nanoTime() - start) / 1_000_000;
+        metrics.turn(failed ? TurnOutcome.ERROR : TurnOutcome.REPLIED);
+        metrics.turnDuration(latencyMs);
         log.info("Turno {} tools={} guardTriggered={} paused={} latencyMs={}",
-                masked, toolsUsed, guardTriggered, paused, (System.nanoTime() - start) / 1_000_000);
+                masked, toolsUsed, guardTriggered, paused, latencyMs);
         return new ChatReply(Optional.of(text), toolsUsed, guardTriggered, paused);
     }
 
@@ -111,7 +132,14 @@ public class ChatService {
     }
 
     private String fallbackAndPause(String phone) {
-        pauseRegistry.pause(phone, config.pause().duration());
-        return "En este momento no puedo revisar tu pedido. " + config.ownerName() + " te escribirá pronto.";
+        pauseUnlessRedirecting(phone);
+        return messages.unavailable();
+    }
+
+    // Con el número nuevo nadie responde en este chat: pausar dejaría a la clienta sin respuesta.
+    private void pauseUnlessRedirecting(String phone) {
+        if (!messages.redirectsToOwner()) {
+            pauseRegistry.pause(phone, config.pause().duration());
+        }
     }
 }

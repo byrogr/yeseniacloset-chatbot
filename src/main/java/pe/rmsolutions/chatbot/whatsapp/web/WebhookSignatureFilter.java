@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jboss.resteasy.reactive.server.ServerRequestFilter;
 import org.jboss.resteasy.reactive.server.SimpleResourceInfo;
+import pe.rmsolutions.chatbot.observability.services.BotMetrics;
 import pe.rmsolutions.chatbot.whatsapp.config.WhatsAppConfig;
 import pe.rmsolutions.chatbot.whatsapp.utils.HmacUtils;
 
@@ -28,6 +29,7 @@ public class WebhookSignatureFilter {
     static final String RECEIVE_METHOD = "receiveWhatsAppEvents";
 
     private final WhatsAppConfig config;
+    private final BotMetrics metrics;
 
     @ServerRequestFilter
     public Response verifySignature(ContainerRequestContext request, SimpleResourceInfo resource) throws IOException {
@@ -41,6 +43,7 @@ public class WebhookSignatureFilter {
         if (!HmacUtils.isValidSignature(config.appSecret(), body, request.getHeaderString(SIGNATURE_HEADER))) {
             log.warn("Webhook rechazado: firma {} ({} bytes)",
                     request.getHeaderString(SIGNATURE_HEADER) == null ? "ausente" : "inválida", body.length);
+            metrics.invalidSignature();
             return WhatsAppProblemMappers.problem(Response.Status.UNAUTHORIZED, "Unauthorized",
                     "Missing or invalid webhook signature.");
         }

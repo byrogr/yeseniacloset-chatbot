@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import pe.rmsolutions.chatbot.account.model.AccountStatus;
 import pe.rmsolutions.chatbot.account.services.AccountStatusService;
 import pe.rmsolutions.chatbot.agent.FixtureAccounts;
+import pe.rmsolutions.chatbot.agent.TestBotConfig;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -18,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AccountStatusFormatterTest {
 
     private final AccountStatusService service = FixtureAccounts.service();
-    private final AccountStatusFormatter formatter = new AccountStatusFormatter();
+    private final AccountStatusFormatter formatter = new AccountStatusFormatter(new HandoffMessages(new TestBotConfig()));
 
     @Test
     void gaby() {
@@ -42,7 +43,7 @@ class AccountStatusFormatterTest {
                 Total general: S/ 175,53
                 Si ya hiciste algún pago o adelanto, Yesenia lo descuenta.""";
 
-        assertThat(formatter.format(service.getAccountStatus(FixtureAccounts.GABY), "Yesenia")).isEqualTo(expected);
+        assertThat(formatter.format(service.getAccountStatus(FixtureAccounts.GABY))).isEqualTo(expected);
     }
 
     @Test
@@ -62,20 +63,28 @@ class AccountStatusFormatterTest {
                 Total general: S/ 86,91
                 Si ya hiciste algún pago o adelanto, Yesenia lo descuenta.""";
 
-        assertThat(formatter.format(service.getAccountStatus(FixtureAccounts.ROGER), "Yesenia")).isEqualTo(expected);
+        assertThat(formatter.format(service.getAccountStatus(FixtureAccounts.ROGER))).isEqualTo(expected);
     }
 
     @Test
     void noRegistrada() {
-        assertThat(formatter.format(service.getAccountStatus(FixtureAccounts.UNREGISTERED), "Yesenia"))
+        assertThat(formatter.format(service.getAccountStatus(FixtureAccounts.UNREGISTERED)))
                 .isEqualTo("Hola, Yesenia te escribirá pronto para ayudarte con tu pedido.");
+    }
+
+    @Test
+    void noRegistradaConNumeroNuevoMandaAlChatDeLaDuenia() {
+        var redirecting = new AccountStatusFormatter(new HandoffMessages(TestBotConfig.redirectingToOwner()));
+
+        assertThat(redirecting.format(service.getAccountStatus(FixtureAccounts.UNREGISTERED)))
+                .isEqualTo("No encuentro pedidos con este número. Escríbele a Yesenia: https://wa.me/51911222333");
     }
 
     @Test
     void sinCampanias() {
         var status = new AccountStatus(true, "Lucía", List.of(), new BigDecimal("0.00"));
 
-        assertThat(formatter.format(status, "Yesenia"))
+        assertThat(formatter.format(status))
                 .isEqualTo("Hola Lucía, no tienes pedidos pendientes por ahora.");
     }
 }

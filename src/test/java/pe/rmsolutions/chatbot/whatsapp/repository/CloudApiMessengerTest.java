@@ -1,6 +1,7 @@
 package pe.rmsolutions.chatbot.whatsapp.repository;
 
 import io.quarkus.test.InjectMock;
+import pe.rmsolutions.chatbot.observability.services.BotMetrics;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.ProcessingException;
@@ -29,6 +30,9 @@ class CloudApiMessengerTest {
     @InjectMock
     @RestClient
     GraphApiClient client;
+
+    @InjectMock
+    BotMetrics metrics;
 
     @Inject
     CloudApiMessenger messenger;
@@ -61,6 +65,7 @@ class CloudApiMessengerTest {
         assertThatThrownBy(() -> messenger.sendText(PHONE, "hola")).isInstanceOf(ProcessingException.class);
 
         verify(client, times(2)).sendMessage(any(), any(), any(), any());
+        verify(metrics, times(2)).outboundError(null);
     }
 
     @Test
@@ -72,5 +77,6 @@ class CloudApiMessengerTest {
                 .extracting("errorCode").isEqualTo(131030);
 
         verify(client, times(1)).sendMessage(any(), any(), any(), any());
+        verify(metrics).outboundError(131030);
     }
 }

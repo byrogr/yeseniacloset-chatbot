@@ -1,6 +1,7 @@
 package pe.rmsolutions.chatbot.agent.services;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import lombok.RequiredArgsConstructor;
 import pe.rmsolutions.chatbot.account.model.AccountStatus;
 import pe.rmsolutions.chatbot.account.model.CampaignAccount;
 import pe.rmsolutions.chatbot.account.model.Garment;
@@ -21,13 +22,16 @@ import java.util.stream.Collectors;
  * @author Roger Rojas - roger.rojas@rmsolutions.pe
  */
 @ApplicationScoped
+@RequiredArgsConstructor
 public class AccountStatusFormatter {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    public String format(AccountStatus status, String ownerName) {
+    private final HandoffMessages messages;
+
+    public String format(AccountStatus status) {
         if (!status.registered()) {
-            return "Hola, " + ownerName + " te escribirá pronto para ayudarte con tu pedido.";
+            return messages.unregistered();
         }
         if (status.campaigns().isEmpty()) {
             return "Hola " + status.customerName() + ", no tienes pedidos pendientes por ahora.";
@@ -40,7 +44,7 @@ public class AccountStatusFormatter {
         }
         text.append('\n')
                 .append("Total general: ").append(money(status.grandTotal())).append('\n')
-                .append("Si ya hiciste algún pago o adelanto, ").append(ownerName).append(" lo descuenta.");
+                .append("Si ya hiciste algún pago o adelanto, ").append(messages.ownerName()).append(" lo descuenta.");
         return text.toString();
     }
 

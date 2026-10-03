@@ -16,6 +16,7 @@ import pe.rmsolutions.chatbot.account.model.AccountStatus;
 import pe.rmsolutions.chatbot.account.services.AccountStatusService;
 import pe.rmsolutions.chatbot.agent.config.BotConfig;
 import pe.rmsolutions.chatbot.agent.utils.MaskingUtils;
+import pe.rmsolutions.chatbot.observability.services.BotMetrics;
 import pe.rmsolutions.chatbot.sheets.repository.WorkbookUnavailableException;
 
 import java.math.BigDecimal;
@@ -45,6 +46,8 @@ public class OrderTools {
     private final AccountStatusService accountStatusService;
     private final TurnContext turnContext;
     private final ConversationPauseRegistry pauseRegistry;
+    private final HandoffMessages messages;
+    private final BotMetrics metrics;
     private final BotConfig config;
 
     @Tool("Returns the customer's orders, totals and payment dates. Call it when the customer ASKS about her "
@@ -70,7 +73,10 @@ public class OrderTools {
             + "the customer reports a payment, asks for more time to pay, wants to order, add, cancel or change "
             + "garments, or asks about anything other than her current orders, amounts and payment dates.")
     public String handOffToOwner(@ToolMemoryId String phone) {
-        pauseRegistry.pause(phone, config.pause().duration());
+        metrics.handoff();
+        if (!messages.redirectsToOwner()) {
+            pauseRegistry.pause(phone, config.pause().duration());
+        }
         log.info("Conversación de {} derivada a la dueña", MaskingUtils.maskPhone(phone));
         return HANDED_OFF;
     }

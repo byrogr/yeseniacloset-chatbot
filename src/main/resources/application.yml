@@ -23,6 +23,25 @@ quarkus:
         max-tokens: 500
       log-requests: false
       log-responses: false
+  container-image:
+    registry: ghcr.io
+    group: ${CONTAINER_IMAGE_GROUP:}   # usuario de GitHub, en minúsculas
+    name: yeseniacloset-chatbot
+    build: false
+    push: false
+  jib:
+    base-jvm-image: registry.access.redhat.com/ubi9/openjdk-21-runtime
+    platforms: linux/amd64
+  otel:
+    metrics:
+      enabled: true
+    # Solo métricas: las trazas de HTTP y de LangChain4j podrían llevar celulares o texto de mensajes.
+    traces:
+      enabled: false
+    azure:
+      applicationinsights:
+        connection:
+          string: ${APPLICATIONINSIGHTS_CONNECTION_STRING:}
 
 sheets:
   spreadsheet-id: ${SHEETS_SPREADSHEET_ID}
@@ -43,14 +62,39 @@ whatsapp:
 
 bot:
   owner-name: ${BOT_OWNER_NAME}
+  owner-contact-phone: ${BOT_OWNER_CONTACT_PHONE:}   # 51 + 9 dígitos; vacío = modo coexistencia
+  enabled: ${BOT_ENABLED:true}
+  allowlist: ${BOT_ALLOWLIST:}       # celulares separados por coma; vacío = todas las clientas
   memory:
     max-messages: 10
     ttl: 30m
   pause:
     duration: 12h
 
+"%prod":
+  quarkus:
+    http:
+      access-log:
+        enabled: false
+    log:
+      level: INFO
+      category:
+        "com.google":
+          level: WARN
+        "dev.langchain4j":
+          level: WARN
+        "io.quarkiverse.langchain4j":
+          level: WARN
+    langchain4j:
+      azure-openai:
+        log-requests: false
+        log-responses: false
+
 "%dev":
   quarkus:
+    otel:
+      sdk:
+        disabled: true
     langchain4j:
       azure-openai:
         log-requests: true
@@ -58,6 +102,9 @@ bot:
 
 "%test":
   quarkus:
+    otel:
+      sdk:
+        disabled: true
     fault-tolerance:
       "pe.rmsolutions.chatbot.whatsapp.repository.CloudApiMessenger/sendText":
         retry:

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import pe.rmsolutions.chatbot.api.model.Problem;
 import pe.rmsolutions.chatbot.whatsapp.WebhookSigner;
+import pe.rmsolutions.chatbot.observability.services.BotMetrics;
 import pe.rmsolutions.chatbot.whatsapp.config.WhatsAppConfig;
 
 import java.io.ByteArrayInputStream;
@@ -30,6 +31,7 @@ class WebhookSignatureFilterTest {
 
     private static final String BODY = "{\"object\":\"whatsapp_business_account\",\"entry\":[]}";
 
+    private final BotMetrics metrics = mock(BotMetrics.class);
     private WebhookSignatureFilter filter;
     private SimpleResourceInfo resource;
 
@@ -37,7 +39,7 @@ class WebhookSignatureFilterTest {
     void setUp() {
         WhatsAppConfig config = mock(WhatsAppConfig.class);
         when(config.appSecret()).thenReturn(WebhookSigner.TEST_APP_SECRET);
-        filter = new WebhookSignatureFilter(config);
+        filter = new WebhookSignatureFilter(config, metrics);
         resource = mock(SimpleResourceInfo.class);
         when(resource.getResourceClass()).thenAnswer(i -> WhatsAppWebhookResource.class);
         when(resource.getMethodName()).thenReturn("receiveWhatsAppEvents");
@@ -51,6 +53,7 @@ class WebhookSignatureFilterTest {
         assertThat(filter.verifySignature(request, resource)).isNull();
 
         assertThat(restoredBody(request)).isEqualTo(body);
+        verify(metrics, never()).invalidSignature();
     }
 
     @Test
@@ -64,6 +67,7 @@ class WebhookSignatureFilterTest {
         assertThat(response.getMediaType()).hasToString("application/problem+json");
         assertThat(((Problem) response.getEntity()).getStatus()).isEqualTo(401);
         verify(request, never()).setEntityStream(any());
+        verify(metrics).invalidSignature();
     }
 
     @Test

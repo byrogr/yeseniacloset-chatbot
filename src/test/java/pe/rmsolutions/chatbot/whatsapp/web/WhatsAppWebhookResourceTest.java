@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -147,8 +148,16 @@ class WhatsAppWebhookResourceTest {
     }
 
     @Test
-    void imagenEstadoYOtroNumeroNoEnvianNada() {
+    void imagenRecibeElAvisoSinPasarPorElAsistente() {
         post(fixture("image-message.json")).statusCode(200);
+
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> verify(messenger)
+                .sendText(eq(PHONE), contains("solo puedo leer mensajes de texto")));
+        verify(chatService, never()).reply(anyString(), anyString());
+    }
+
+    @Test
+    void estadoYOtroNumeroNoEnvianNada() {
         post(fixture("status-update.json")).statusCode(200);
         post(fixture("other-phone-number-id.json")).statusCode(200);
 

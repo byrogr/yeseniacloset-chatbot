@@ -3,11 +3,13 @@ package pe.rmsolutions.chatbot.agent.services;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
+import io.opentelemetry.api.OpenTelemetry;
 import org.junit.jupiter.api.Test;
 import pe.rmsolutions.chatbot.account.services.AccountStatusService;
 import pe.rmsolutions.chatbot.agent.FixtureAccounts;
 import pe.rmsolutions.chatbot.agent.MutableClock;
 import pe.rmsolutions.chatbot.agent.TestBotConfig;
+import pe.rmsolutions.chatbot.observability.services.BotMetrics;
 import pe.rmsolutions.chatbot.sheets.config.SheetsConfig;
 import pe.rmsolutions.chatbot.sheets.repository.FailingWorkbookSource;
 import pe.rmsolutions.chatbot.sheets.services.WorkbookParser;
@@ -65,6 +67,15 @@ class OrderToolsTest {
     }
 
     @Test
+    void handOffToOwnerConNumeroNuevoNoPausa() {
+        OrderTools tools = tools(FixtureAccounts.service(), TestBotConfig.redirectingToOwner());
+
+        assertThat(tools.handOffToOwner(FixtureAccounts.GABY)).isEqualTo("{\"handedOff\":true}");
+
+        assertThat(pauses.isPaused(FixtureAccounts.GABY)).isFalse();
+    }
+
+    @Test
     void ningunaToolRecibeIdentidadComoParametroDelModelo() {
         for (Method method : OrderTools.class.getDeclaredMethods()) {
             if (!method.isAnnotationPresent(Tool.class)) {
@@ -81,7 +92,11 @@ class OrderToolsTest {
     }
 
     private OrderTools tools(AccountStatusService service) {
-        return new OrderTools(service, turnContext, pauses, new TestBotConfig());
+        return tools(service, new TestBotConfig());
+    }
+
+    private OrderTools tools(AccountStatusService service, TestBotConfig config) {
+        return new OrderTools(service, turnContext, pauses, new HandoffMessages(config), new BotMetrics(OpenTelemetry.noop().getMeter("test")), config);
     }
 
     private AccountStatusService unavailableService() {

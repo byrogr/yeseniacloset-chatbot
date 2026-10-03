@@ -14,6 +14,8 @@ import pe.rmsolutions.chatbot.account.services.AccountStatusService;
 import pe.rmsolutions.chatbot.agent.FixtureAccounts;
 import pe.rmsolutions.chatbot.agent.model.ChatReply;
 import pe.rmsolutions.chatbot.agent.repository.ExpiringChatMemoryStore;
+import pe.rmsolutions.chatbot.observability.services.BotMetrics;
+import pe.rmsolutions.chatbot.observability.services.BotMetrics.TurnOutcome;
 
 import java.time.Duration;
 import java.util.List;
@@ -39,6 +41,8 @@ class ChatServiceTest {
 
     @InjectMock
     OrderAssistant assistant;
+    @InjectMock
+    BotMetrics metrics;
 
     @Inject
     ChatService chatService;
@@ -68,6 +72,7 @@ class ChatServiceTest {
         assertThat(reply.text()).isEmpty();
         assertThat(reply.paused()).isTrue();
         verify(assistant, never()).chat(anyString(), anyString(), anyString());
+        verify(metrics).turn(TurnOutcome.PAUSED);
     }
 
     @Test
@@ -110,6 +115,8 @@ class ChatServiceTest {
         assertThat(reply.guardTriggered()).isTrue();
         assertThat(reply.toolsUsed()).containsExactly("getAccountStatus");
         assertThat(reply.text()).contains(PRESENTATION + gabyFormatted());
+        verify(metrics).guardTriggered();
+        verify(metrics).turnDuration(org.mockito.ArgumentMatchers.anyLong());
     }
 
     @Test
@@ -133,6 +140,7 @@ class ChatServiceTest {
                 + "En este momento no puedo revisar tu pedido. Yesenia te escribirá pronto.");
         assertThat(reply.paused()).isTrue();
         assertThat(pauses.isPaused(PHONE)).isTrue();
+        verify(metrics).turn(TurnOutcome.ERROR);
     }
 
     @Test
@@ -157,8 +165,22 @@ class ChatServiceTest {
         assertThat(pauses.isPaused(PHONE)).isTrue();
     }
 
+    @Test
+    void derivacionReemplazaElTextoDelModeloYPausa() {
+        answerCallingHandOffTool("Listo, ya le aviso y te separo la blusa");
+
+        ChatReply reply = chatService.reply(PHONE, "quiero pedir otra blusa");
+
+        assertThat(reply.text()).contains(PRESENTATION + "Yesenia te escribirá pronto.");
+        assertThat(reply.toolsUsed()).containsExactly("handOffToOwner");
+        assertThat(reply.guardTriggered()).isFalse();
+        assertThat(reply.paused()).isTrue();
+        verify(metrics).handoff();
+        verify(metrics).turn(TurnOutcome.REPLIED);
+    }
+
     private String gabyFormatted() {
-        return formatter.format(accountStatusService.getAccountStatus(PHONE), "Yesenia");
+        return formatter.format(accountStatusService.getAccountStatus(PHONE));
     }
 
     private void answerWithoutTools(String content) {
@@ -175,6 +197,18 @@ class ChatServiceTest {
             ToolExecution execution = org.mockito.Mockito.mock(ToolExecution.class);
             when(execution.request()).thenReturn(
                     ToolExecutionRequest.builder().id("1").name("getAccountStatus").arguments("{}").build());
+            when(execution.result()).thenReturn(toolResult);
+            return Result.<String>builder().content(content).toolExecutions(List.of(execution)).build();
+        });
+    }
+
+    private void answerCallingHandOffTool(String content) {
+        when(assistant.chat(eq(PHONE), anyString(), any())).thenAnswer(inv -> {
+            String toolResult = orderTools.handOffToOwner(PHONE);
+            remember(inv.getArgument(1), content);
+            ToolExecution execution = org.mockito.Mockito.mock(ToolExecution.class);
+            when(execution.request()).thenReturn(
+                    ToolExecutionRequest.builder().id("1").name("handOffToOwner").arguments("{}").build());
             when(execution.result()).thenReturn(toolResult);
             return Result.<String>builder().content(content).toolExecutions(List.of(execution)).build();
         });
