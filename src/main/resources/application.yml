@@ -4,6 +4,13 @@ quarkus:
   http:
     access-log:
       enabled: false
+  jackson:
+    fail-on-unknown-properties: false
+  rest-client:
+    whatsapp-graph:
+      url: ${whatsapp.api-base-url}
+      connect-timeout: 5000
+      read-timeout: 10000
   langchain4j:
     azure-openai:
       endpoint: ${FOUNDRY_ENDPOINT}
@@ -24,6 +31,16 @@ sheets:
   cache-ttl: 60s
   stale-max: 30m
 
+whatsapp:
+  api-base-url: https://graph.facebook.com
+  api-version: v25.0
+  phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID}
+  access-token: ${WHATSAPP_ACCESS_TOKEN}
+  app-secret: ${WHATSAPP_APP_SECRET}
+  verify-token: ${WHATSAPP_VERIFY_TOKEN}
+  dedupe-ttl: 24h
+  max-text-length: 4096
+
 bot:
   owner-name: ${BOT_OWNER_NAME}
   memory:
@@ -41,6 +58,11 @@ bot:
 
 "%test":
   quarkus:
+    fault-tolerance:
+      "pe.rmsolutions.chatbot.whatsapp.repository.CloudApiMessenger/sendText":
+        retry:
+          delay: 10
+          delay-unit: millis
     langchain4j:
       azure-openai:
         endpoint: ${FOUNDRY_ENDPOINT:https://dummy.openai.azure.com/openai/deployments/dummy}
@@ -53,3 +75,8 @@ bot:
     credentials-json: ""
   bot:
     owner-name: Yesenia
+  whatsapp:
+    phone-number-id: TEST_PHONE_NUMBER_ID
+    access-token: test-access-token
+    app-secret: test-app-secret
+    verify-token: test-verify-token

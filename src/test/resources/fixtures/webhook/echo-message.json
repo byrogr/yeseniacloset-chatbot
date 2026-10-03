@@ -1,0 +1,21 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [{
+    "id": "WABA_ID",
+    "changes": [{
+      "field": "smb_message_echoes",
+      "value": {
+        "messaging_product": "whatsapp",
+        "metadata": { "display_phone_number": "15550000000", "phone_number_id": "TEST_PHONE_NUMBER_ID" },
+        "message_echoes": [{
+          "from": "15550000000",
+          "to": "51911111111",
+          "id": "wamid.ECHO001",
+          "timestamp": "1790900030",
+          "type": "text",
+          "text": { "body": "Hola Gaby, te escribo yo" }
+        }]
+      }
+    }]
+  }]
+}
