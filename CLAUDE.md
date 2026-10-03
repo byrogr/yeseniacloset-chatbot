@@ -25,9 +25,10 @@ Bot de WhatsApp para un negocio de venta de ropa por catálogo (Pacifika y Carme
 | `agent` | AI Service de LangChain4j, tools, memoria, contexto de la clienta | 2 |
 | `whatsapp` | Webhook, firma HMAC, deduplicación, envío, pausa por eco | 3 |
 | `ops` | Health checks y endpoints de desarrollo (solo perfil `dev`) | 1+ |
+| `observability` | Métricas de negocio con OpenTelemetry hacia Application Insights (`BotMetrics`), sin datos personales | 4 |
 | `api`, `api.model` | Interfaces y DTOs **generados** desde `openapi.yml` (no se editan a mano) | 1.1 |
 
-Regla de dependencias: `account` no depende de `whatsapp` ni de `agent`; `sheets` no depende de nadie. El dominio se prueba sin red. Solo los subpaquetes `web` y `mapper` dependen de `api` / `api.model`.
+Regla de dependencias: `account` no depende de `whatsapp` ni de `agent`; `sheets` y `observability` no dependen de nadie (`agent` y `whatsapp` usan `observability`). El dominio se prueba sin red. Solo los subpaquetes `web` y `mapper` dependen de `api` / `api.model`.
 
 ### Subpaquetes dentro de cada paquete de dominio
 
@@ -43,7 +44,7 @@ Dentro de cada paquete de la tabla anterior, el código se separa por responsabi
 | `web` | Puntos de entrada: recursos JAX-RS que implementan las interfaces generadas, filtros, `ExceptionMapper`s y health checks. Solo delegan, sin lógica de negocio. |
 | `mapper` | Interfaces MapStruct que convierten entre records de dominio y DTOs generados del contrato OpenAPI. |
 
-Ejemplo actual: `sheets.model.{CampaignId,Customer,OrderRow,OrderStatus,ParsedWorkbook,RawWorkbook}`, `sheets.repository.{WorkbookSource,GoogleSheetsWorkbookSource,WorkbookUnavailableException}`, `sheets.services.{WorkbookParser,WorkbookProvider}`, `sheets.utils.{NameNormalizer,PhoneNormalizer,TabNamePolicy}`, `sheets.config.{SheetsConfig,ClockProducer}`; `account.model.{AccountStatus,CampaignAccount,Garment,GarmentInfo,RecipientGroup}`, `account.services.AccountStatusService`; `ops.web.{AccountStatusResource,SheetsReadinessCheck}`, `ops.mapper.AccountStatusMapper`. Canal: `whatsapp.web.{WhatsAppWebhookResource,WebhookSignatureFilter}`, `whatsapp.services.{WebhookEventHandler,InboundDispatcher,InboundMessageProcessor,MessageDeduplicator}`, `whatsapp.repository.{OutboundMessenger,CloudApiMessenger,GraphApiClient}`.
+Ejemplo actual: `sheets.model.{CampaignId,Customer,OrderRow,OrderStatus,ParsedWorkbook,RawWorkbook}`, `sheets.repository.{WorkbookSource,GoogleSheetsWorkbookSource,WorkbookUnavailableException}`, `sheets.services.{WorkbookParser,WorkbookProvider}`, `sheets.utils.{NameNormalizer,PhoneNormalizer,TabNamePolicy}`, `sheets.config.{SheetsConfig,ClockProducer}`; `account.model.{AccountStatus,CampaignAccount,Garment,GarmentInfo,RecipientGroup}`, `account.services.AccountStatusService`; `ops.web.{AccountStatusResource,SheetsReadinessCheck}`, `ops.mapper.AccountStatusMapper`. Canal: `whatsapp.web.{WhatsAppWebhookResource,WebhookSignatureFilter}`, `whatsapp.services.{WebhookEventHandler,InboundDispatcher,InboundMessageProcessor,MessageDeduplicator,NoticeThrottle}`, `whatsapp.repository.{OutboundMessenger,CloudApiMessenger,GraphApiClient}`. Derivación: `agent.services.HandoffMessages` (textos fijos, con o sin `bot.owner-contact-phone`). Métricas: `observability.services.BotMetrics`.
 
 Las fases futuras (`agent`, `whatsapp`) siguen esta misma convención desde su primer commit.
 
@@ -133,7 +134,10 @@ export WHATSAPP_PHONE_NUMBER_ID=...   # Fase 3
 export WHATSAPP_ACCESS_TOKEN=...
 export WHATSAPP_APP_SECRET=...
 export WHATSAPP_VERIFY_TOKEN=...      # valor aleatorio largo, el mismo que se pone en Meta
+export BOT_OWNER_CONTACT_PHONE=...    # Fase 4: 51 + 9 dígitos de la dueña; vacío = modo coexistencia
 ```
+
+Tabla completa (secretos, origen de cada valor): `docs/operacion/variables-entorno.md`.
 
 ## Cómo trabajar en este repo
 
@@ -150,6 +154,10 @@ export WHATSAPP_VERIFY_TOKEN=...      # valor aleatorio largo, el mismo que se p
 - [x] Fase 1.1: contrato OpenAPI único (`docs/specs/fase-1-1.md`). Pendiente la prueba manual con `curl` contra el Sheet real. Los recursos `dev` usan `@IfBuildProfile(anyOf = {"dev", "test"})` para poder probarlos por HTTP.
 - [x] Fase 2: agente de IA (`docs/specs/fase-2.md`). Eval contra el modelo real: 48/48, guardia 0, p95 2,7 s (`./mvnw verify -Peval` con las variables `FOUNDRY_*`). Pendiente la prueba manual con una clienta real. `FOUNDRY_ENDPOINT` debe ser la URL completa del deployment (`https://<recurso>.openai.azure.com/openai/deployments/<deployment>`). `FOUNDRY_API_VERSION` es la `api-version` que el portal muestra en el ejemplo del deployment.
 - [x] Fase 3: canal WhatsApp (`docs/specs/fase-3.md`). Contrato en 1.1.0 (se quitó `additionalProperties: true` de los esquemas de Meta). Prueba con el número de prueba (sección 7 de la spec): webhook verificado por túnel y respuesta real entregada en WhatsApp a partir de un mensaje simulado y firmado desde Postman. Pendiente: mensaje real desde el celular (la app sin publicar solo recibe webhooks de prueba del panel; puede requerir publicarla en la Fase 4) y los chequeos de segundo mensaje, fuera de alcance y audio contra Meta. El formato de `smb_message_echoes` se tomó de la documentación de coexistencia y no se pudo probar con el número de prueba; los ecos `revoke`/`edit` también pausan.
-  - Pendiente de IA Responsable: responder a los mensajes que no son texto (audio, imagen) con un aviso en vez de silencio; hoy la spec dice que no se responde.
-- [ ] Fase 4: despliegue y piloto.
-  - Pendientes de IA Responsable: nota de transparencia en `docs/`; métricas en Application Insights (tasa de guardia y de derivaciones); volver a correr la eval ante cada cambio de modelo o prompt; definir con la dueña cómo se informa a las clientas del uso de IA y de Azure.
+  - ~~Pendiente de IA Responsable: aviso para mensajes que no son texto~~ Resuelto en la Fase 4 (A2).
+- [ ] Fase 4: despliegue y piloto (`docs/specs/fase-4.md`).
+  - Ruta elegida: **número nuevo dedicado al bot**, con la Cloud API directa en la app de Meta propia, sin coexistencia. Nadie atiende ese número a mano: las derivaciones mandan a la clienta al número personal de la dueña (`BOT_OWNER_CONTACT_PHONE`, enlace `wa.me`) y no pausan. Con la variable vacía, el bot vuelve al comportamiento de la Fase 3 (coexistencia).
+  - [x] Código (A1–A6), CI/CD (B) y documentos (E): `./mvnw verify` con 158 tests en verde y Spectral sin errores; contrato sin cambios. El texto de derivación lo arma Java (`HandoffMessages`), nunca el LLM. Solo se exportan métricas: las trazas de OpenTelemetry quedan apagadas porque podrían llevar celulares o texto.
+  - C4: la extensión de LangChain4j no soporta Managed Identity; se mantiene la API key (`docs/notas/foundry-managed-identity.md`).
+  - Pendiente: volver a correr la eval (cambió el prompt), construir la imagen (no hay Docker local; lo verifica `ci.yml`), las partes manuales C, D y F, y validar con la dueña `docs/transparencia.md` y `docs/comunicacion-clientas.md`.
+  - Pendientes de IA Responsable que siguen abiertos: volver a correr la eval ante cada cambio de modelo o prompt (`eval.yml`); la dueña valida cómo se informa a las clientas del uso de IA y de Azure.
