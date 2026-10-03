@@ -1,5 +1,7 @@
 package pe.rmsolutions.chatbot.agent.services;
 
+import dev.langchain4j.exception.ContentFilteredException;
+import dev.langchain4j.exception.HttpException;
 import dev.langchain4j.service.Result;
 import jakarta.enterprise.context.ApplicationScoped;
 import lombok.RequiredArgsConstructor;
@@ -73,8 +75,14 @@ public class ChatService {
             log.error("Sheet no disponible al formatear el respaldo para {}", masked, e);
             text = fallbackAndPause(phone);
         } catch (RuntimeException e) {
-            log.error("Fallo del modelo para {}", masked, e);
-            text = fallbackAndPause(phone);
+            if (isContentFiltered(e)) {
+                log.warn("Mensaje de {} bloqueado por el filtro de contenido de Azure; se deriva a la dueña", masked);
+                pauseRegistry.pause(phone, config.pause().duration());
+                text = config.ownerName() + " te escribirá pronto.";
+            } else {
+                log.error("Fallo del modelo para {}", masked, e);
+                text = fallbackAndPause(phone);
+            }
         } finally {
             turnContext.clear(phone);
         }
@@ -86,6 +94,20 @@ public class ChatService {
         log.info("Turno {} tools={} guardTriggered={} paused={} latencyMs={}",
                 masked, toolsUsed, guardTriggered, paused, (System.nanoTime() - start) / 1_000_000);
         return new ChatReply(Optional.of(text), toolsUsed, guardTriggered, paused);
+    }
+
+    // La extensión de Azure no siempre traduce el 400 de Azure a ContentFilteredException.
+    private static boolean isContentFiltered(Throwable error) {
+        for (Throwable t = error; t != null; t = t.getCause()) {
+            if (t instanceof ContentFilteredException) {
+                return true;
+            }
+            if (t instanceof HttpException http && http.statusCode() == 400
+                    && String.valueOf(http.getMessage()).contains("content_filter")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String fallbackAndPause(String phone) {

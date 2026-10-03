@@ -100,7 +100,7 @@ public interface OrderAssistant {
 public String getAccountStatus(@ToolMemoryId String phone)
 
 @Tool("Hands the conversation over to the store owner. Call it first, without calling getAccountStatus, when the customer reports a payment, asks for more time to pay, wants to order, add, cancel or change garments, or asks about anything other than her current orders, amounts and payment dates.")
-public String handOffToOwner(@ToolMemoryId String phone, @P("short reason, in Spanish") String reason)
+public String handOffToOwner(@ToolMemoryId String phone)
 ```
 
 - `@ToolMemoryId` inyecta el celular desde la memoria: **el modelo no puede elegir de quién consulta**. Esta es la defensa principal contra prompt injection; no agregar ningún parámetro de identidad.
@@ -108,7 +108,7 @@ public String handOffToOwner(@ToolMemoryId String phone, @P("short reason, in Sp
   - Llama a `AccountStatusService` y guarda el resultado en `TurnContext`.
   - Devuelve el `AccountStatus` serializado a JSON (Jackson), con montos en texto `"35.91"` para evitar redondeos del modelo.
   - Si se lanza `WorkbookUnavailableException`, devuelve `{"available": false}`.
-- `handOffToOwner`: pausa el celular en `ConversationPauseRegistry` por `bot.pause.duration`, registra el motivo con el celular enmascarado y devuelve `{"handedOff": true}`.
+- `handOffToOwner`: pausa el celular en `ConversationPauseRegistry` por `bot.pause.duration`, registra el evento con el celular enmascarado y devuelve `{"handedOff": true}`. No recibe un motivo: lo redactaría el modelo a partir del mensaje de la clienta y no se registra texto derivado de los mensajes.
 
 ### 3.3 Prompt del sistema (`src/main/resources/prompts/system-prompt.txt`)
 
@@ -123,7 +123,8 @@ B. Algo que tiene que resolver {ownerName}: llama de inmediato a handOffToOwner,
    - avisa que pagó, yapeó, transfirió o dio un adelanto ("ya te yapeé", "te pagué 50 soles");
    - pide más plazo o cambiar la fecha de pago ("puedo pagar la próxima semana?");
    - quiere pedir, agregar, cancelar o cambiar prendas ("quiero pedir", "agrega", "cancela");
-   - pregunta por tallas, stock, catálogos nuevos, fotos, entregas, reclamos, medios de pago o descuentos.
+   - pregunta por tallas, stock, catálogos nuevos, fotos, entregas, reclamos, medios de pago o descuentos;
+   - pide hablar con {ownerName} o con una persona.
 C. Saludo o agradecimiento: responde brevemente, sin llamar tools.
 
 Reglas:
@@ -227,6 +228,7 @@ public record ChatReply(
     - Marca `guardTriggered = true` y registra un warning con el celular enmascarado.
 6. Si es el primer mensaje, antepone: `Hola, soy el asistente automático de {ownerName}.` y un salto de línea. Si la respuesta ya empieza con un saludo, igual se antepone; no debe depender del LLM.
 7. Si el modelo falla (timeout o error HTTP), devuelve un texto fijo: `"En este momento no puedo revisar tu pedido. {ownerName} te escribirá pronto."`, pausa el celular y registra el error.
+   - Excepción: si Azure bloquea el mensaje con su filtro de contenido (`ContentFilteredException`, o HTTP 400 con `content_filter`), no es un fallo: responde `"{ownerName} te escribirá pronto."`, pausa el celular y registra un warning sin el texto.
 8. Limpia `TurnContext` en un `finally`.
 9. Registra una traza por turno: celular enmascarado, tools usadas, `guardTriggered` y latencia en milisegundos. **Nunca el texto.**
 
@@ -271,6 +273,7 @@ Test `AssistantEvalIT`:
   - Respuesta con monto inventado → reemplazada por el formateador y `guardTriggered = true`.
   - Respuesta con montos sin tool → usa el servicio directamente.
   - Excepción del asistente → texto fijo y pausa.
+  - Bloqueo del filtro de contenido de Azure → deriva a la dueña y pausa.
 - `OrderToolsTest`: `getAccountStatus` usa el celular recibido por `@ToolMemoryId` y guarda en `TurnContext`; con libro no disponible devuelve `{"available":false}`; `handOffToOwner` pausa.
 - `ConversationResourceTest` (`@QuarkusTest`, con la misma estrategia de perfil que la Fase 1.1): 200 con la forma de `ConversationReply`; 400 con `application/problem+json` para `text` vacío y celular inválido; `GET .../pause` 404 sin pausa y 200 con pausa; `DELETE .../pause` 204 dos veces seguidas.
 
@@ -292,7 +295,7 @@ curl -s localhost:8080/api/v1/conversations/51XXXXXXXXX/messages \
 
 - [ ] `./mvnw verify` pasa, sin llamar al modelo real.
 - [ ] Lint de Spectral sin errores; no se creó ningún contrato adicional.
-- [ ] Eval: 40 de 40 casos eligen una tool aceptable y ninguno muestra un texto prohibido.
+- [ ] Eval: todos los casos del set eligen una tool aceptable y ninguno muestra un texto prohibido.
 - [ ] Eval: la guardia se activa en 2 casos o menos. Si se activa más, se ajusta el prompt, no la guardia.
 - [ ] Eval: latencia p95 menor a 6 s.
 - [ ] Ninguna tool recibe identidad como parámetro controlado por el modelo (revisión de código).

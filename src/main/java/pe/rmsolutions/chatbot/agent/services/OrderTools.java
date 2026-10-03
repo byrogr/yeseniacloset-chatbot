@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolMemoryId;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -70,9 +69,9 @@ public class OrderTools {
     @Tool("Hands the conversation over to the store owner. Call it first, without calling getAccountStatus, when "
             + "the customer reports a payment, asks for more time to pay, wants to order, add, cancel or change "
             + "garments, or asks about anything other than her current orders, amounts and payment dates.")
-    public String handOffToOwner(@ToolMemoryId String phone, @P("short reason, in Spanish") String reason) {
+    public String handOffToOwner(@ToolMemoryId String phone) {
         pauseRegistry.pause(phone, config.pause().duration());
-        log.info("Conversación de {} derivada a la dueña: {}", MaskingUtils.maskPhone(phone), reason);
+        log.info("Conversación de {} derivada a la dueña", MaskingUtils.maskPhone(phone));
         return HANDED_OFF;
     }
 }

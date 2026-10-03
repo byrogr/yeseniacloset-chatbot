@@ -59,7 +59,7 @@ class OrderToolsTest {
     void handOffToOwnerPausaLaConversacion() {
         OrderTools tools = tools(FixtureAccounts.service());
 
-        assertThat(tools.handOffToOwner(FixtureAccounts.GABY, "consulta de stock")).isEqualTo("{\"handedOff\":true}");
+        assertThat(tools.handOffToOwner(FixtureAccounts.GABY)).isEqualTo("{\"handedOff\":true}");
 
         assertThat(pauses.pausedUntil(FixtureAccounts.GABY)).contains(clock.instant().plus(TestBotConfig.PAUSE));
     }

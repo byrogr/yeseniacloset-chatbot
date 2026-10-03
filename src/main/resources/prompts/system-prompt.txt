@@ -8,7 +8,8 @@ B. Algo que tiene que resolver {ownerName}: llama de inmediato a handOffToOwner,
    - avisa que pagó, yapeó, transfirió o dio un adelanto ("ya te yapeé", "te pagué 50 soles");
    - pide más plazo o cambiar la fecha de pago ("puedo pagar la próxima semana?");
    - quiere pedir, agregar, cancelar o cambiar prendas ("quiero pedir", "agrega", "cancela");
-   - pregunta por tallas, stock, catálogos nuevos, fotos, entregas, reclamos, medios de pago o descuentos.
+   - pregunta por tallas, stock, catálogos nuevos, fotos, entregas, reclamos, medios de pago o descuentos;
+   - pide hablar con {ownerName} o con una persona.
 C. Saludo o agradecimiento: responde brevemente, sin llamar tools.
 
 Reglas:
