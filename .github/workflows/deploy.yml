@@ -1,0 +1,88 @@
+name: deploy
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Push a main solo si ci pasó; la ejecución manual siempre.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CONTAINER_APP: ${{ vars.CONTAINER_APP_NAME || 'ca-chatbot-pedidos' }}
+      RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP || 'rg-chatbot-pedidos' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Nombre de la imagen
+        id: image
+        run: |
+          owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          sha="$(git rev-parse HEAD)"
+          echo "owner=$owner" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "ref=ghcr.io/$owner/chatbot-pedidos:$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Construir y publicar la imagen en GHCR
+        env:
+          QUARKUS_CONTAINER_IMAGE_USERNAME: ${{ github.actor }}
+          QUARKUS_CONTAINER_IMAGE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          ./mvnw -B package -DskipTests
+          -Dquarkus.container-image.build=true
+          -Dquarkus.container-image.push=true
+          -Dquarkus.container-image.group=${{ steps.image.outputs.owner }}
+          -Dquarkus.container-image.tag=${{ steps.image.outputs.sha }}
+          -Dquarkus.container-image.additional-tags=latest
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Actualizar la Container App
+        run: |
+          az containerapp update -n "$CONTAINER_APP" -g "$RESOURCE_GROUP" \
+            --image "${{ steps.image.outputs.ref }}"
+
+      - name: Esperar la revisión nueva y verificar readiness
+        run: |
+          revision="$(az containerapp show -n "$CONTAINER_APP" -g "$RESOURCE_GROUP" \
+            --query properties.latestRevisionName -o tsv)"
+          fqdn="$(az containerapp show -n "$CONTAINER_APP" -g "$RESOURCE_GROUP" \
+            --query properties.configuration.ingress.fqdn -o tsv)"
+          for i in $(seq 1 30); do
+            health="$(az containerapp revision show -n "$CONTAINER_APP" -g "$RESOURCE_GROUP" \
+              --revision "$revision" --query properties.healthState -o tsv)"
+            echo "Revisión $revision: $health"
+            if [ "$health" = "Healthy" ]; then break; fi
+            sleep 10
+          done
+          if [ "$health" != "Healthy" ]; then
+            echo "La revisión $revision no llegó a Healthy" >&2
+            exit 1
+          fi
+          curl --fail --silent --show-error --retry 5 --retry-delay 5 "https://$fqdn/q/health/ready"

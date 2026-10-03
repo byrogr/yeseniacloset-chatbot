@@ -1,0 +1,44 @@
+name: eval
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'src/main/resources/prompts/**'
+      - 'src/main/resources/application.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # Regla de IA responsable: un cambio de prompt no se mergea sin una eval en verde.
+      - name: Evaluación del asistente contra el modelo real
+        env:
+          FOUNDRY_ENDPOINT: ${{ secrets.FOUNDRY_ENDPOINT }}
+          FOUNDRY_API_KEY: ${{ secrets.FOUNDRY_API_KEY }}
+          FOUNDRY_DEPLOYMENT: ${{ secrets.FOUNDRY_DEPLOYMENT }}
+          FOUNDRY_API_VERSION: ${{ secrets.FOUNDRY_API_VERSION }}
+        run: |
+          set -o pipefail
+          ./mvnw -B verify -Peval | tee eval.log
+
+      - name: Resumen de la evaluación
+        if: always()
+        run: |
+          {
+            echo '## Evaluación del asistente'
+            echo '```'
+            sed -n '/===== Evaluación/,/^\[INFO\]/p' eval.log | grep -v '^\[INFO\]' || echo 'Sin resumen: revisa el log del paso anterior.'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
