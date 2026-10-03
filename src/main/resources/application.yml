@@ -4,6 +4,18 @@ quarkus:
   http:
     access-log:
       enabled: false
+  langchain4j:
+    azure-openai:
+      endpoint: ${FOUNDRY_ENDPOINT}
+      api-key: ${FOUNDRY_API_KEY}
+      deployment-name: ${FOUNDRY_DEPLOYMENT}
+      api-version: ${FOUNDRY_API_VERSION}
+      timeout: 30s
+      chat-model:
+        temperature: 0.2
+        max-tokens: 500
+      log-requests: false
+      log-responses: false
 
 sheets:
   spreadsheet-id: ${SHEETS_SPREADSHEET_ID}
@@ -12,8 +24,32 @@ sheets:
   cache-ttl: 60s
   stale-max: 30m
 
+bot:
+  owner-name: ${BOT_OWNER_NAME}
+  memory:
+    max-messages: 10
+    ttl: 30m
+  pause:
+    duration: 12h
+
+"%dev":
+  quarkus:
+    langchain4j:
+      azure-openai:
+        log-requests: true
+        log-responses: true
+
 "%test":
+  quarkus:
+    langchain4j:
+      azure-openai:
+        endpoint: ${FOUNDRY_ENDPOINT:https://dummy.openai.azure.com/openai/deployments/dummy}
+        api-key: ${FOUNDRY_API_KEY:dummy}
+        deployment-name: ${FOUNDRY_DEPLOYMENT:dummy}
+        api-version: ${FOUNDRY_API_VERSION:2024-10-21}
   sheets:
     spreadsheet-id: test-spreadsheet
     credentials-file: unused
     credentials-json: ""
+  bot:
+    owner-name: Yesenia
