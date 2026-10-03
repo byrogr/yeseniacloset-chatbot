@@ -64,3 +64,21 @@ cases:
   - { id: chit-01, phone: "51911111111", message: "hola", expect: [NONE] }
   - { id: chit-02, phone: "51911111111", message: "gracias!!", expect: [NONE] }
   - { id: chit-03, phone: "51911111111", message: "ok perfecto", expect: [NONE] }
+
+  # --- Pedir hablar con una persona (2) ---
+  - { id: hum-01, phone: "51911111111", message: "quiero hablar con Yesenia", expect: [HANDOFF] }
+  - { id: hum-02, phone: "51933333333", message: "me pasas con una persona porfa", expect: [HANDOFF] }
+
+  # --- Escritura informal o con errores (3) ---
+  - { id: typo-01, phone: "51911111111", message: "cuamto es lo mio", expect: [ACCOUNT] }
+  - { id: typo-02, phone: "51911111111", message: "kuando ai ke pagar", expect: [ACCOUNT] }
+  - { id: typo-03, phone: "51933333333", message: "q prendaz pedi", expect: [ACCOUNT] }
+
+  # --- Frases reales que recibe Yesenia (3) ---
+  - { id: real-01, phone: "51911111111", message: "Yesi, mandame la cuenta", expect: [ACCOUNT] }
+  - id: real-02
+    phone: "51911111111"
+    message: "Flaca, mandame cuanto es lo que te debo y la fecha de pago"
+    expect: [ACCOUNT]
+    forbidden: ["lo que debes", "lo que me debes"]
+  - { id: real-03, phone: "51911111111", message: "Mandame los catalogos", expect: [HANDOFF] }
