@@ -2,7 +2,7 @@ openapi: 3.0.3
 
 info:
   title: Chatbot Pedidos API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     API del backend del chatbot de pedidos por WhatsApp.
 
@@ -346,9 +346,11 @@ components:
         pausedUntil: { type: string, format: date-time, example: "2026-10-02T22:15:00Z" }
 
     # ---------- WhatsApp (formato de Meta, snake_case) ----------
+    # No se declara `additionalProperties: true`: en OpenAPI 3.0 las propiedades extra ya se aceptan por defecto,
+    # y declararlo hace que el generador cree DTOs que extienden HashMap y no deserializan los campos tipados.
+    # Los campos nuevos de Meta se ignoran al deserializar (Jackson con fail-on-unknown-properties en false).
     WhatsAppWebhookEvent:
       type: object
-      additionalProperties: true
       required: [object, entry]
       properties:
         object: { type: string, example: whatsapp_business_account }
@@ -358,7 +360,6 @@ components:
 
     WhatsAppEntry:
       type: object
-      additionalProperties: true
       properties:
         id: { type: string, description: WABA ID. }
         changes:
@@ -367,14 +368,12 @@ components:
 
     WhatsAppChange:
       type: object
-      additionalProperties: true
       properties:
         field: { type: string, description: "messages, smb_message_echoes u otros.", example: messages }
         value: { $ref: "#/components/schemas/WhatsAppChangeValue" }
 
     WhatsAppChangeValue:
       type: object
-      additionalProperties: true
       properties:
         messaging_product: { type: string, example: whatsapp }
         metadata: { $ref: "#/components/schemas/WhatsAppMetadata" }
@@ -389,29 +388,25 @@ components:
           items: { $ref: "#/components/schemas/WhatsAppMessageEcho" }
         statuses:
           type: array
-          items: { type: object, additionalProperties: true }
+          items: { type: object }
 
     WhatsAppMetadata:
       type: object
-      additionalProperties: true
       properties:
         display_phone_number: { type: string }
         phone_number_id: { type: string }
 
     WhatsAppContact:
       type: object
-      additionalProperties: true
       properties:
         wa_id: { type: string }
         profile:
           type: object
-          additionalProperties: true
           properties:
             name: { type: string }
 
     WhatsAppInboundMessage:
       type: object
-      additionalProperties: true
       properties:
         from: { type: string, example: "51911111111" }
         id: { type: string, example: wamid.TEST001 }
@@ -421,13 +416,11 @@ components:
 
     WhatsAppText:
       type: object
-      additionalProperties: true
       properties:
         body: { type: string }
 
     WhatsAppMessageEcho:
       type: object
-      additionalProperties: true
       description: Mensaje enviado por la dueña desde la app de WhatsApp Business (coexistencia).
       properties:
         from: { type: string }
