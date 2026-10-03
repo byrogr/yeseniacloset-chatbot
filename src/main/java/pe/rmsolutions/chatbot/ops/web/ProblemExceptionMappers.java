@@ -6,6 +6,7 @@ import jakarta.validation.Path;
 import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import pe.rmsolutions.chatbot.account.services.CustomerNotFoundException;
+import pe.rmsolutions.chatbot.agent.services.ConversationNotPausedException;
 import pe.rmsolutions.chatbot.api.model.Problem;
 import pe.rmsolutions.chatbot.sheets.repository.WorkbookUnavailableException;
 
@@ -26,6 +27,12 @@ public class ProblemExceptionMappers {
     public Response customerNotFound(CustomerNotFoundException e) {
         return problem(Response.Status.NOT_FOUND, "Customer not found",
                 "No customer is registered with that phone number.");
+    }
+
+    @ServerExceptionMapper
+    public Response conversationNotPaused(ConversationNotPausedException e) {
+        return problem(Response.Status.NOT_FOUND, "Conversation not paused",
+                "The conversation has no active pause.");
     }
 
     @ServerExceptionMapper
