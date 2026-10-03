@@ -144,6 +144,6 @@ export SHEETS_CREDENTIALS_FILE=$HOME/.config/chatbot-pedidos/sa.json
 - [x] Fase 0: Sheet, Meta (número de prueba), Google Cloud y Azure configurados.
 - [x] Fase 1: lectura del Sheet y dominio (`docs/specs/fase-1.md`). Pendiente la verificación manual contra el Sheet real (ver tabla de criterios de aceptación) y la deuda técnica de cobertura de `GoogleSheetsWorkbookSource` (`docs/notas/cobertura-google-sheets.md`).
 - [x] Fase 1.1: contrato OpenAPI único (`docs/specs/fase-1-1.md`). Pendiente la prueba manual con `curl` contra el Sheet real. Los recursos `dev` usan `@IfBuildProfile(anyOf = {"dev", "test"})` para poder probarlos por HTTP.
-- [ ] Fase 2: agente de IA (`docs/specs/fase-2.md`).
+- [x] Fase 2: agente de IA (`docs/specs/fase-2.md`). Eval contra el modelo real: 40/40, guardia 1, p95 2,7 s (`./mvnw verify -Peval` con las variables `FOUNDRY_*`). Pendiente la prueba manual con una clienta real. `FOUNDRY_ENDPOINT` debe ser la URL completa del deployment (`https://<recurso>.openai.azure.com/openai/deployments/<deployment>`). `FOUNDRY_API_VERSION` es la `api-version` que el portal muestra en el ejemplo del deployment.
 - [ ] Fase 3: canal WhatsApp (`docs/specs/fase-3.md`).
 - [ ] Fase 4: despliegue y piloto.

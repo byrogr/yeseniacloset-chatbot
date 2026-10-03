@@ -45,4 +45,4 @@ nb-configuration.xml
 .certs/
 
 # Others
-.config/*
+.config/
