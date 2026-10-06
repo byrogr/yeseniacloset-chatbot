@@ -145,6 +145,8 @@ Tabla completa (secretos, origen de cada valor): `docs/operacion/variables-entor
 - Antes de escribir código, presenta un plan y espera confirmación.
 - Después de cada paso, corre `./mvnw test`; no avances con tests en rojo.
 - Si la spec es ambigua o contradice este archivo, pregunta antes de decidir.
+- Ramas (trunk-based): `main` es la única rama larga y siempre debe poder desplegarse. Cada cambio va en una rama corta desde `main` (`feat/...`, `fix/...`, `docs/...`, `ci/...`, con el mismo prefijo que los commits), entra por pull request con `ci` en verde y se borra al mergear. Nada de `develop` ni `release/*`. `main` protegida: PR obligatorio, check `build` de `ci` requerido y sin force push.
+- Versiones: el `pom.xml` lleva `X.Y.Z-SNAPSHOT` mientras la versión está en desarrollo o en piloto. Al validarla, un PR la cambia a `X.Y.Z`, se crea el tag `vX.Y.Z` en `main` y otro PR sube a la siguiente `-SNAPSHOT` (minor por defecto). Las imágenes se etiquetan con el SHA del commit (más `latest`), así que el despliegue no depende de la versión de Maven. La versión del contrato (`info.version` de `openapi.yml`) es independiente y solo cambia cuando cambia el contrato.
 - No crear commits (`git commit`) ni hacer `git push`. En su lugar, al terminar el trabajo entrega un plan de commits: para cada commit propuesto, el mensaje y la lista exacta de archivos a agregar (`git add`). El dueño del repo revisa y ejecuta los commits y el push.
 
 ## Estado
@@ -161,5 +163,6 @@ Tabla completa (secretos, origen de cada valor): `docs/operacion/variables-entor
   - C4: la extensión de LangChain4j no soporta Managed Identity; se mantiene la API key (`docs/notas/foundry-managed-identity.md`).
   - Eval tras los cambios de prompt: 48/48, guardia 0, p50 1,9 s, p95 2,9 s (dos corridas). Se agregó la regla 3: los estados `Pendiente` y `Entregado` se cobran igual, y "lo pendiente" para la clienta es todo lo que tiene por pagar (antes el modelo sumaba solo las prendas en estado `Pendiente` y la guardia lo bloqueaba).
   - Imagen con Jib: `ghcr.io/<usuario>/yeseniacloset-chatbot`, linux/amd64; arranca y `/q/health/live` responde UP en Docker local. El readiness de Sheets es perezoso (Fase 1): queda UP hasta que una carga falla, así que el chequeo de `deploy.yml` no prueba el acceso al Sheet.
+  - `ci` pasa en `main` (verify, Spectral e imagen). `deploy` publica la imagen en GHCR y falla en `azure/login` hasta que se configure la parte C. El environment `production` lo creó GitHub sin reglas: falta agregar al dueño como revisor obligatorio (si no, `deploy` corre sin aprobación).
   - Pendiente: las partes manuales C, D y F, y validar con la dueña `docs/transparencia.md` y `docs/comunicacion-clientas.md`.
   - Pendientes de IA Responsable que siguen abiertos: volver a correr la eval ante cada cambio de modelo o prompt (`eval.yml`); la dueña valida cómo se informa a las clientas del uso de IA y de Azure.
