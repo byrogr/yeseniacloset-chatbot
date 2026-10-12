@@ -232,24 +232,39 @@ El environment `production` de GitHub debe tener al dueño del repo como revisor
 
 ### C1. Acceso a GHCR
 
-1. En GitHub: **Settings → Developer settings → Personal access tokens → Fine-grained** o classic, con solo `read:packages`. Será la credencial de Container Apps para descargar la imagen.
+Decisión: el paquete `ghcr.io/byrogr/yeseniacloset-chatbot` es **público**. El repositorio también lo es y la imagen no lleva secretos (todo se inyecta por variables de entorno), así que la Container App la descarga sin credenciales y no hay un token que venza. Se revisa si el repositorio pasa a privado.
+
+Solo si el paquete fuera privado:
+
+1. En GitHub: **Settings → Developer settings → Personal access tokens → Fine-grained** o classic, con solo `read:packages`. Será la credencial de Container Apps para descargar la imagen. Anotar la fecha de vencimiento.
 2. En la Container App `ca-chatbot-pedidos`: **Configuración → Registros → Agregar**: servidor `ghcr.io`, usuario de GitHub y el token como contraseña.
+
+Recursos reales (creados en la Fase 0, con nombres distintos a los de los ejemplos de esta spec): Container App `caeastus2chatbot-yeseniacloset`, grupo de recursos `rg-eastus2-chatbot-yeseniacloset`, región East US 2. `deploy.yml` los toma de las variables `CONTAINER_APP_NAME` y `RESOURCE_GROUP` del environment.
 
 ### C2. Identidad para GitHub Actions (OIDC)
 
-1. **Microsoft Entra ID → Registros de aplicaciones → Nuevo registro**: `gh-chatbot-pedidos-deploy`.
-2. En el registro: **Certificados y secretos → Credenciales federadas → Agregar**, escenario *GitHub Actions*: tu usuario, el repositorio, entidad **Environment** = `production`.
-3. En la Container App: **Control de acceso (IAM) → Agregar asignación de roles**: rol **Colaborador**, asignado a `gh-chatbot-pedidos-deploy`, con alcance solo en la Container App.
-4. En GitHub, environment `production` → variables: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`. Son identificadores, no secretos.
+1. **Microsoft Entra ID → Registros de aplicaciones → Nuevo registro**: `gh-yeseniacloset-chatbot-deploy`.
+2. En el registro: **Certificados y secretos → Credenciales federadas → Agregar**, escenario *GitHub Actions deploying Azure resources*, entidad **Environment** = `production`. GitHub emite el *subject* con IDs inmutables (`repo:byrogr@1936096/yeseniacloset-chatbot@1401108537:environment:production`); Azure pide el Organization ID y el Repository ID (`gh api users/byrogr --jq .id`, `gh api repos/byrogr/yeseniacloset-chatbot --jq .id`).
+3. En la Container App: **Control de acceso (IAM) → Agregar asignación de roles**: rol **Colaborador**, asignado a `gh-yeseniacloset-chatbot-deploy`, con alcance solo en la Container App ("This resource").
+4. En GitHub, environment `production` → **variables** (no *secrets*: `deploy.yml` las lee con `vars.*`): `AZURE_CLIENT_ID` (el *Application (client) ID* del registro), `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `CONTAINER_APP_NAME`, `RESOURCE_GROUP`.
 
 ### C3. Configuración de la Container App
 
 1. **Secretos**: crea uno por cada valor secreto de `docs/operacion/variables-entorno.md` (tokens de WhatsApp, App Secret, verify token, JSON de la service account de Google, API key de Foundry, connection string de Application Insights).
 2. **Contenedor → Editar e implementar → Variables de entorno**: las no secretas como valor y las secretas como "Referencia a secreto". Durante el piloto, `BOT_ALLOWLIST` lleva los celulares de las clientas del piloto.
 3. **Recursos**: 0,5 vCPU y 1 GiB.
-4. **Sondeos**: liveness `GET /q/health/live` y readiness `GET /q/health/ready`, puerto 8080.
-5. **Escalado**: mínimo **1** y máximo **1** réplica (ver Decisiones).
-6. **Entrada**: tráfico desde cualquier lugar, puerto de destino **8080** (la imagen de inicio rápido usaba 80).
+4. **Imagen**: *Docker Hub or other registries*, tipo **Public**, servidor `ghcr.io`, imagen `byrogr/yeseniacloset-chatbot:<sha>`. Se edita en **Application → Containers → Edit and deploy**, no en *Settings → Deployment* (ese asistente crea su propio workflow con Azure Container Registry y choca con `deploy.yml`).
+5. **Sondeos**: los tres en **HTTP, puerto 8080**. La imagen de inicio rápido los deja en TCP 80: con eso Quarkus arranca, pero la revisión queda en *Activating* hasta 20 minutos y el tráfico sigue en la revisión anterior.
+
+   | Sondeo | Ruta | Período | Umbral de fallas |
+   | --- | --- | --- | --- |
+   | Startup | `/q/health/started` | 5 s | 12 |
+   | Liveness | `/q/health/live` | 10 s | 3 |
+   | Readiness | `/q/health/ready` | 5 s | 3 |
+
+6. **Escalado**: mínimo **1** y máximo **1** réplica (ver Decisiones).
+7. **Entrada**: tráfico desde cualquier lugar, puerto de destino **8080** (la imagen de inicio rápido usaba 80).
+8. **Development stack**: dejarlo en **Generic**. Con *Java*, Azure inyecta en la JVM un agente propio (`azure-javabooster-agent`) que no forma parte de la imagen; las métricas ya salen por OpenTelemetry.
 
 ### C4. Foundry con Managed Identity (recomendado, no bloqueante)
 
@@ -276,20 +291,24 @@ Mientras la app no esté publicada, solo recibe los webhooks de prueba del panel
 
 1. **Configuración de la aplicación → Básica**: ícono, categoría y **URL de la política de privacidad**. Puede ser la nota de transparencia de la parte E, publicada como página (por ejemplo, con GitHub Pages).
 2. **Publicar** → cambiar la app a modo en vivo.
-3. Callback del webhook: `https://<url-de-la-container-app>/api/v1/webhooks/whatsapp`, con el `WHATSAPP_VERIFY_TOKEN` de producción. Suscribir `messages` (sin coexistencia no llegan `smb_message_echoes`).
+3. Callback del webhook: `https://<url-de-la-container-app>/api/v1/webhooks/whatsapp`, con el `WHATSAPP_VERIFY_TOKEN` de producción. Suscribir el campo `messages` (sin coexistencia no llegan `smb_message_echoes`). Además, en **Paso 2. Configuración de producción**, encender **"Suscribirse a webhooks"** en la tarjeta de la cuenta de WhatsApp: el campo define *qué* eventos llegan y este interruptor, *de qué cuenta*. Si falta cualquiera de los dos, no llega nada.
+   - Permisos de la app: basta el acceso estándar ("Listo para prueba") de `whatsapp_business_messaging` y `whatsapp_business_management`, porque la cuenta de WhatsApp es del mismo portafolio. No agregar otros permisos ni pedir App Review.
 4. Con el número de prueba y el bot ya en Azure, repetir los chequeos pendientes de la Fase 3: mensaje real desde el celular, segundo mensaje sin presentación, pregunta fuera de alcance que pausa y audio que recibe el aviso de A2.
 
 ### D2. Registro del número nuevo
 
 **Antes de empezar:** conseguir un chip (prepago sirve) que **no** tenga WhatsApp activo y que reciba SMS o llamadas. Si tuvo WhatsApp, borrar primero esa cuenta desde la app. Dejar `BOT_ENABLED=false` hasta terminar este paso.
 
-1. **WhatsApp Manager → Números de teléfono → Agregar número**, en la misma cuenta de WhatsApp Business donde está el número de prueba.
+1. **App de Meta → WhatsApp → Configuración de la API → Añadir número de teléfono**, creando una cuenta de WhatsApp Business **real** en el mismo portafolio (zona horaria `America/Lima`). La "Test WhatsApp Business Account" del número de prueba no admite números reales. Si Meta indica que se alcanzó el máximo de números, el portafolio sin verificar llegó a su tope de 2 y hace falta la verificación de negocio (paso 7) antes de seguir.
 2. Nombre visible (Meta lo revisa; debe coincidir con el negocio, por ejemplo "Yesenia Closet") y categoría.
 3. Verificación por SMS o llamada y PIN de verificación en dos pasos. Guardar el PIN fuera del repo.
 4. Si WhatsApp Manager lo pide, agregar un método de pago. Las respuestas a mensajes que inicia la clienta, dentro de las 24 h, no se cobran, pero revisar la tabla de precios vigente de Meta para Perú.
-5. **Token permanente**: en Meta Business Suite → Usuarios del sistema, crear un usuario de sistema con acceso a la app y a la cuenta de WhatsApp, y generar un token con `whatsapp_business_messaging` y `whatsapp_business_management`. El token temporal del panel vence en 24 h.
+5. **Token permanente**: en Meta Business Suite → Usuarios del sistema, crear un usuario de sistema con rol **Empleado** y asignarle **antes de generar el token** la app (control total) y la cuenta de WhatsApp real (control total). Luego generar el token, sin vencimiento, con `whatsapp_business_messaging` y `whatsapp_business_management`. El token temporal del panel vence en 24 h.
+   - Si la cuenta de WhatsApp no estaba asignada, el token es válido y lee el número, pero Meta rechaza los envíos con `error.code=100` (y `GET /<WABA_ID>` da *"Unsupported get request"*). Hay que asignarla, revocar los tokens del usuario y generar uno nuevo. `granular_scopes` puede mostrar `target_ids: None` aunque el acceso esté bien: la prueba válida es `GET /<WABA_ID>?fields=name`.
+   - Al cambiar el secreto en la Container App, reiniciar la revisión: los secretos se leen al arrancar.
 6. Actualizar los secretos de la Container App: `WHATSAPP_PHONE_NUMBER_ID` del número nuevo y el token permanente. Configurar `BOT_OWNER_CONTACT_PHONE` con el número personal de la dueña.
-7. Verificación de negocio en Meta: opcional para el piloto (el bot solo responde mensajes que inician las clientas). Hacerla si se necesita el check verde o más límite para mensajes iniciados por el negocio.
+7. Verificación de negocio en Meta: opcional para el piloto (el bot solo responde mensajes que inician las clientas), salvo que el portafolio haya llegado al tope de 2 números (paso 1). Hacerla también si se necesita el check verde o más límite para mensajes iniciados por el negocio.
+8. Comprobar que la cuenta nueva esté suscrita a la app (`GET /<WABA_ID>/subscribed_apps`); si no, suscribirla con `POST /<WABA_ID>/subscribed_apps`. Sin eso, los mensajes al número nuevo no llegan al webhook.
 
 Para verificar, con `BOT_ENABLED=true` y `BOT_ALLOWLIST` con **solo tu celular**:
 
