@@ -34,7 +34,7 @@ public class AccountStatusFormatter {
             return messages.unregistered();
         }
         if (status.campaigns().isEmpty()) {
-            return "Hola " + status.customerName() + ", no tienes pedidos pendientes por ahora.";
+            return "Hola " + status.customerName() + ", no tienes pedidos por pagar por ahora.";
         }
 
         StringBuilder text = new StringBuilder("Hola ").append(status.customerName()).append(", este es tu pedido:\n");

@@ -160,7 +160,7 @@ public class WorkbookParser {
             CampaignId campaignId, List<OrderRow> rows, List<String> warnings) {
         Map<String, LocalDate> firstDateByCustomer = new HashMap<>();
         for (OrderRow row : rows) {
-            if (row.status() != OrderStatus.PENDIENTE && row.status() != OrderStatus.ENTREGADO) {
+            if (row.status() != OrderStatus.ENTREGADO) {
                 continue;
             }
             if (row.paymentDate() == null) {

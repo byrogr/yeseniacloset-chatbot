@@ -114,11 +114,11 @@ class AccountStatusServiceTest {
     }
 
     @Test
-    void rogerTieneConjuntoNegroYBufandaSinC10() {
+    void rogerSoloTieneLaC11PorqueLaBufandaDeLaC12EstaPendiente() {
         AccountStatus status = service.getAccountStatus("51933333333");
 
         assertThat(status.customerName()).isEqualTo("Roger");
-        assertThat(status.campaigns()).hasSize(2);
+        assertThat(status.campaigns()).hasSize(1);
 
         CampaignAccount pacifika = status.campaigns().get(0);
         assertThat(pacifika.campaignTitle()).isEqualTo("C-11-pacifika");
@@ -130,12 +130,30 @@ class AccountStatusServiceTest {
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("Chompa", "M"));
         assertThat(pacifika.total()).isEqualTo(amount("71.91"));
 
-        CampaignAccount carmel12 = status.campaigns().get(1);
-        assertThat(carmel12.campaignTitle()).isEqualTo("C-12-Carmel");
-        assertThat(carmel12.paymentDate()).isNull();
-        assertThat(carmel12.total()).isEqualTo(amount("15.00"));
+        assertThat(status.grandTotal()).isEqualTo(amount("71.91"));
+    }
 
-        assertThat(status.grandTotal()).isEqualTo(amount("86.91"));
+    @Test
+    void lasPrendasPendientesDeUnaCampaniaFuturaNoSeCobranNiSeMuestran() {
+        // Gaby anotó un "Polo verde" para la C-12, que todavía no se pide (estado Pendiente).
+        AccountStatus status = service.getAccountStatus("51911111111");
+
+        assertThat(status.campaigns()).extracting(CampaignAccount::campaignTitle)
+                .containsExactly("C-11-carmel", "C-11-pacifika");
+        assertThat(status.grandTotal()).isEqualTo(amount("175.53"));
+    }
+
+    @Test
+    void unaPrendaPendienteDentroDeLaCampaniaActivaNoSumaNiCambiaLaFechaDePago() {
+        // En la C-11-carmel, Gaby tiene una "Falda" Pendiente con fecha 01/12/2026.
+        CampaignAccount carmel = service.getAccountStatus("51911111111").campaigns().get(0);
+
+        assertThat(carmel.campaignTitle()).isEqualTo("C-11-carmel");
+        assertThat(carmel.groups()).flatExtracting("items").extracting("product")
+                .containsExactly("Pantalón", "Blusa crema");
+        assertThat(carmel.unpriced()).isEmpty();
+        assertThat(carmel.paymentDate()).isEqualTo(LocalDate.of(2026, 10, 20));
+        assertThat(carmel.total()).isEqualTo(amount("79.80"));
     }
 
     @Test

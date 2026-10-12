@@ -138,7 +138,11 @@ public class AccountStatusService {
         return result;
     }
 
+    /**
+     * Solo se cobra lo ya pedido en la web de la empresa ({@code Entregado}). {@code Pendiente} es lo anotado
+     * para una campaña que todavía no se pide, y se ignora igual que {@code Pagado} y {@code Cancelado}.
+     */
     private boolean isChargeable(OrderRow row) {
-        return row.status() == OrderStatus.PENDIENTE || row.status() == OrderStatus.ENTREGADO;
+        return row.status() == OrderStatus.ENTREGADO;
     }
 }

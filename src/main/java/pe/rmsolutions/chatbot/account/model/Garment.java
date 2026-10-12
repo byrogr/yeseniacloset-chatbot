@@ -5,7 +5,7 @@ import pe.rmsolutions.chatbot.sheets.model.OrderStatus;
 import java.math.BigDecimal;
 
 /**
- * Una prenda cobrable (Pendiente o Entregado) con precio, dentro de un {@link RecipientGroup}.
+ * Una prenda cobrable (Entregado) con precio, dentro de un {@link RecipientGroup}.
  *
  * @author Roger Rojas - roger.rojas@rmsolutions.pe
  */
