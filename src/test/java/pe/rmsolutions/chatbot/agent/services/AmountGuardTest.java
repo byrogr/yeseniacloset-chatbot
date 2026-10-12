@@ -4,10 +4,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.Test;
 import pe.rmsolutions.chatbot.account.model.AccountStatus;
+import pe.rmsolutions.chatbot.account.model.CampaignAccount;
+import pe.rmsolutions.chatbot.account.model.Garment;
+import pe.rmsolutions.chatbot.account.model.RecipientGroup;
 import pe.rmsolutions.chatbot.agent.FixtureAccounts;
 import pe.rmsolutions.chatbot.agent.model.GuardResult;
+import pe.rmsolutions.chatbot.sheets.model.OrderStatus;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -34,7 +39,11 @@ class AmountGuardTest {
 
     @Test
     void montoSinDecimalesSeNormaliza() {
-        var status = FixtureAccounts.service().getAccountStatus(FixtureAccounts.ROGER);
+        var amount = new BigDecimal("15.00");
+        var bufanda = new Garment("Bufanda", "U", amount, OrderStatus.ENTREGADO);
+        var campaign = new CampaignAccount("C-11-carmel", 11, "carmel", null,
+                List.of(new RecipientGroup(null, List.of(bufanda), amount)), List.of(), List.of(), amount);
+        var status = new AccountStatus(true, "Roger", List.of(campaign), amount);
 
         assertThat(guard.check("La bufanda es S/ 15", status).status()).isEqualTo(GuardResult.Status.OK);
     }

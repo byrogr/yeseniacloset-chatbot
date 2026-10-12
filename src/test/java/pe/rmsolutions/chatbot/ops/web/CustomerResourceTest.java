@@ -37,7 +37,7 @@ class CustomerResourceTest {
                 .body("campaigns.find { it.campaignId == 'C-11-pacifika' }"
                         + ".groups.find { it.recipient == 'Ana' }.subtotal", equalTo("75.83"))
                 .body("campaigns.find { it.campaignId == 'C-11-pacifika' }.groups[0].items[0].status",
-                        equalTo("PENDING"))
+                        equalTo("DELIVERED"))
                 .body("campaigns.find { it.campaignId == 'C-11-pacifika' }.soldOutItems[0].product",
                         equalTo("Vestido azul"))
                 .body("$", not(org.hamcrest.Matchers.hasKey("registered")));

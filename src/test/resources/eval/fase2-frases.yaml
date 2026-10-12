@@ -82,3 +82,15 @@ cases:
     expect: [ACCOUNT]
     forbidden: ["lo que debes", "lo que me debes"]
   - { id: real-03, phone: "51911111111", message: "Mandame los catalogos", expect: [HANDOFF] }
+  # Solo se cobra lo Entregado: lo Pendiente es de una campaña que todavía no se pide y la tool no lo devuelve.
+  # La clienta tiene prendas anotadas en la C-12; el bot no debe decir que no tiene nada, sino derivar.
+  - id: pend-01
+    phone: "51911111111"
+    message: "y lo de la campaña 12?"
+    expect: [ACCOUNT, HANDOFF]
+    forbidden: ["no tienes pedidos", "no tienes nada", "no tienes prendas"]
+  - id: pend-02
+    phone: "51911111111"
+    message: "que tengo anotado para la proxima campaña?"
+    expect: [ACCOUNT, HANDOFF]
+    forbidden: ["no tienes pedidos", "no tienes nada", "no tienes prendas"]

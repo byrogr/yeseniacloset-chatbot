@@ -56,11 +56,7 @@ class AccountStatusFormatterTest {
                 Chompa M: precio por confirmar
                 Total: S/ 71,91
 
-                C-12 Carmel (fecha de pago por confirmar)
-                Bufanda U: S/ 15,00
-                Total: S/ 15,00
-
-                Total general: S/ 86,91
+                Total general: S/ 71,91
                 Si ya hiciste algún pago o adelanto, Yesenia lo descuenta.""";
 
         assertThat(formatter.format(service.getAccountStatus(FixtureAccounts.ROGER))).isEqualTo(expected);
@@ -85,6 +81,6 @@ class AccountStatusFormatterTest {
         var status = new AccountStatus(true, "Lucía", List.of(), new BigDecimal("0.00"));
 
         assertThat(formatter.format(status))
-                .isEqualTo("Hola Lucía, no tienes pedidos pendientes por ahora.");
+                .isEqualTo("Hola Lucía, no tienes pedidos por pagar por ahora.");
     }
 }

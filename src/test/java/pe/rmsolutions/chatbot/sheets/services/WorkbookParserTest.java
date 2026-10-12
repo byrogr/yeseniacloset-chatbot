@@ -42,6 +42,8 @@ class WorkbookParserTest {
                 .anySatisfy(a -> assertThat(a).contains("C-11-pacifika").contains("fila 13").contains("Reservado"))
                 .anySatisfy(a -> assertThat(a).contains("C-11-carmel").contains("Gaby")
                         .contains("20/10/2026").contains("25/10/2026"));
+        // La "Falda" Pendiente (01/12/2026) no cuenta para la advertencia de fechas distintas.
+        assertThat(workbook.warnings()).noneSatisfy(a -> assertThat(a).contains("01/12/2026"));
     }
 
     @Test
@@ -60,7 +62,7 @@ class WorkbookParserTest {
 
         assertThat(chompa.totalAmount()).isNull();
         assertThat(chompa.paymentDate()).isNull();
-        assertThat(chompa.status()).isEqualTo(OrderStatus.PENDIENTE);
+        assertThat(chompa.status()).isEqualTo(OrderStatus.ENTREGADO);
         assertThat(chompa.customer()).isEqualTo("Roger");
     }
 
