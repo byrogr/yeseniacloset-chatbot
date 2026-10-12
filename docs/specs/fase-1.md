@@ -101,7 +101,7 @@ Reglas:
 - **`Clienta`:** se resuelve contra la pestaña Clientas con `NombreNormalizer`. Si no existe, se descarta la fila con advertencia. En `FilaPedido.clienta` se guarda el nombre **tal como está en Clientas**.
 - **`Para`:** `trim`; vacío = `null`.
 - **Celulares** de Clientas: se normalizan con `CelularNormalizer`. Un celular inválido descarta la clienta con advertencia.
-- **Fecha de pago distinta** dentro de la misma clienta y campaña, considerando solo filas cobrables (Pendiente o Entregado): advertencia. La regla de qué fecha se usa vive en `cuenta`.
+- **Fecha de pago distinta** dentro de la misma clienta y campaña, considerando solo filas cobrables (Entregado): advertencia. La regla de qué fecha se usa vive en `cuenta`.
 - **Formato de advertencias:** `"<pestaña> fila <n>: <motivo>"`, o `"<pestaña>: <motivo>"` si aplica a la pestaña entera.
 
 ### 3.4 Normalizadores (clases utilitarias, en `sheets`)
@@ -153,12 +153,12 @@ public EstadoCuenta consultar(String celularCrudo)
 
 1. Normaliza el celular. Si es inválido o no existe en Clientas: `EstadoCuenta(false, null, List.of(), 0.00)`.
 2. Toma las filas de esa clienta y las agrupa por campaña.
-3. Una campaña **se incluye solo si tiene al menos una fila cobrable** (Pendiente o Entregado).
+3. Una campaña **se incluye solo si tiene al menos una fila cobrable**. Cobrable = **`Entregado`** (ver "Significado de los estados").
 4. Dentro de una campaña incluida:
     - Fila cobrable **con** `montoTotal`: va a `grupos`, en el grupo de su `Para`.
     - Fila cobrable **sin** `montoTotal`: va a `sinPrecio` y no suma.
     - Fila `Agotado`: va a `agotadas`.
-    - `Pagado` y `Cancelado`: se ignoran.
+    - `Pendiente`, `Pagado` y `Cancelado`: se ignoran.
 5. **Grupos:** se agrupan por `NombreNormalizer.clave(para)`. Se muestra el `para` de la primera fila del grupo, en orden de fila. El grupo propio (`para = null`) va primero y el resto en orden alfabético. Un grupo sin prendas no aparece.
 6. **`fechaPago`:** la más temprana entre las filas cobrables de la campaña, o `null` si ninguna tiene fecha.
 7. **Totales:** subtotal = suma de los montos del grupo; total de campaña = suma de subtotales; `totalGeneral` = suma de totales de campaña.
@@ -166,6 +166,17 @@ public EstadoCuenta consultar(String celularCrudo)
 9. Si la clienta está registrada pero no tiene campañas incluidas: `registrada = true` y lista vacía.
 
 Si `WorkbookProvider` lanza `WorkbookNoDisponibleException`, el servicio la propaga. La Fase 2 decide cómo responder.
+
+### Significado de los estados (cambio del 11/10/2026)
+
+| Estado | Qué significa en la tienda | Efecto en el estado de cuenta |
+| --- | --- | --- |
+| `Entregado` | El pedido ya se hizo en la web de la empresa (campaña activa) | **Se cobra** |
+| `Pendiente` | Prenda anotada para una campaña que todavía no se pide (por ejemplo, la C-14 cuando la activa es la C-13) | Se ignora: no suma ni se muestra |
+| `Agotado` | La empresa no tenía la prenda | Se informa, no se cobra |
+| `Pagado`, `Cancelado` | Ya pagada o anulada | Se ignora |
+
+La versión original de esta spec cobraba `Pendiente` y `Entregado`. En el piloto, una clienta con la C-13 activa vio sumadas al total las prendas que ya había anotado para la C-14, una campaña que ni siquiera se había pedido. La regla es por estado, fila por fila: no hace falta saber cuál es la campaña activa.
 
 ## 5. Endpoint de desarrollo (`ops`)
 
