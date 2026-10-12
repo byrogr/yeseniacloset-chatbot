@@ -1,8 +1,8 @@
 # Asistente automático de pedidos: nota de transparencia
 
-> Borrador para revisar con la dueña antes de publicarlo. Lo que está entre corchetes `[...]` se completa con ella.
+> Versión publicada como política de privacidad en https://byrogr.github.io/yeseniacloset/privacidad.html (repo `byrogr/yeseniacloset`). Si cambia este texto, se actualiza también allá.
 
-Esta nota explica, en palabras sencillas, qué hace el asistente automático de WhatsApp de [nombre de la tienda], cómo usa tus datos y qué límites tiene.
+Esta nota explica, en palabras sencillas, qué hace el asistente automático de WhatsApp de Yesenia Closet, cómo usa tus datos y qué límites tiene.
 
 ## Qué hace el asistente
 
@@ -20,15 +20,15 @@ Funciona en un **número de WhatsApp propio, solo para consultas de pedidos**. E
 
 El asistente **no** toma pedidos, no agrega ni cancela prendas, no confirma pagos, no cambia fechas de pago, no da descuentos y no responde sobre tallas, stock, catálogos nuevos ni entregas.
 
-Todo eso lo atiende directamente [nombre de la dueña] en su número de siempre. Cuando preguntas algo de esto, el asistente te responde con un enlace para escribirle a ella.
+Todo eso lo atiende directamente Yesenia Morales en su número de siempre. Cuando preguntas algo de esto, el asistente te responde con un enlace para escribirle a ella.
 
 ## Cómo se calculan los montos
 
-Los montos **no los calcula la IA**. Salen siempre de la hoja donde [nombre de la dueña] registra los pedidos y los calcula un programa común, sin IA. La IA solo redacta la respuesta.
+Los montos **no los calcula la IA**. Salen siempre de la hoja donde Yesenia Morales registra los pedidos y los calcula un programa común, sin IA. La IA solo redacta la respuesta.
 
 Antes de enviarte cualquier respuesta, una verificación automática compara cada monto con los de la hoja. Si la IA escribió un monto que no coincide, esa respuesta se descarta y recibes en su lugar un resumen armado directamente desde la hoja.
 
-Si ya hiciste un pago o adelanto, el total que ves todavía no lo descuenta: eso lo hace [nombre de la dueña].
+Si ya hiciste un pago o adelanto, el total que ves todavía no lo descuenta: eso lo hace Yesenia Morales.
 
 ## Qué datos usa
 
@@ -55,21 +55,21 @@ Sobre el modelo de IA, según la documentación de Microsoft ([Data, privacy, an
 
 ## Límites conocidos
 
-- Puede no entender mensajes ambiguos o con muchas faltas. Si no te entiende, escríbele a [nombre de la dueña].
+- Puede no entender mensajes ambiguos o con muchas faltas. Si no te entiende, escríbele a Yesenia Morales.
 - No escucha audios ni ve fotos. Si envías uno, te avisará que solo lee texto.
 - Responde con lo que está en la hoja. Si la hoja todavía no está actualizada (por ejemplo, un pedido recién hecho), la respuesta tampoco lo estará.
 
 ## Supervisión humana
 
-- Para hablar con una persona, escríbele a [nombre de la dueña] a su número de siempre. Cada vez que preguntas algo que el asistente no puede resolver, te comparte el enlace a su chat.
-- [Nombre de la dueña] puede apagar el asistente en cualquier momento. Apagado, el número solo responde con el enlace para escribirle a ella.
+- Para hablar con una persona, escríbele a Yesenia Morales a su número de siempre. Cada vez que preguntas algo que el asistente no puede resolver, te comparte el enlace a su chat.
+- Yesenia Morales puede apagar el asistente en cualquier momento. Apagado, el número solo responde con el enlace para escribirle a ella.
 
 ## Contacto
 
-Usar el asistente es opcional. Si no quieres usarlo, no le escribas a su número: [nombre de la dueña] te sigue atendiendo como siempre en el suyo.
+Usar el asistente es opcional. Si no quieres usarlo, no le escribas a su número: Yesenia Morales te sigue atendiendo como siempre en el suyo.
 
-Si tienes dudas sobre el asistente o sobre tus datos, escríbele a [nombre de la dueña] al [número o correo de contacto].
+Si tienes dudas sobre el asistente o sobre tus datos, escríbele a Yesenia Morales al ymmg88@gmail.com.
 
 ---
 
-Última actualización: [fecha]
+Última actualización: 05/10/2026

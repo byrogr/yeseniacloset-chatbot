@@ -1,6 +1,6 @@
 # Comunicación a las clientas
 
-> Borradores para que la dueña elija y ajuste. Los envía ella **desde su número personal**, no desde el número del bot. Lo que está entre corchetes `[...]` se completa antes de enviar.
+> Borradores para que la dueña elija y ajuste. Los envía ella **desde su número personal**, no desde el número del bot. Solo queda `[nombre]` por completar en cada envío.
 
 ## 1. Mensaje individual para las clientas del piloto
 
@@ -8,27 +8,27 @@ Se envía a cada clienta antes de agregar su celular a `BOT_ALLOWLIST`. Esperar 
 
 > Hola [nombre] 😊 Te escribo porque estoy probando algo nuevo y me gustaría que me ayudes.
 >
-> Abrí un número de WhatsApp **solo para consultar tus pedidos**: [enlace wa.me del bot]. Ahí te responde un **asistente automático** (usa inteligencia artificial, no soy yo) que te dice qué prendas pediste, cuánto es tu total y hasta cuándo pagas, a cualquier hora.
+> Abrí un número de WhatsApp **solo para consultar tus pedidos**: https://wa.me/51974282339. Ahí te responde un **asistente automático** (usa inteligencia artificial, no soy yo) que te dice qué prendas pediste, cuánto es tu total y hasta cuándo pagas, a cualquier hora.
 >
 > Los montos salen directo de mi hoja de pedidos, no los inventa la IA. Para todo lo demás (pedir, pagar, cambios, tallas) me sigues escribiendo a mí aquí, como siempre.
 >
-> Es una prueba de dos semanas con pocas clientas. ¿Te animas? Si prefieres no participar, no hay ningún problema, todo sigue igual. Aquí te explico cómo funciona y qué datos usa: [enlace a la nota de transparencia]
+> Es una prueba de dos semanas con pocas clientas. ¿Te animas? Si prefieres no participar, no hay ningún problema, todo sigue igual. Aquí te explico cómo funciona y qué datos usa: https://byrogr.github.io/yeseniacloset/privacidad.html
 
 Variante corta, si ya conversaron antes:
 
-> [Nombre], este es el número del asistente para consultar tus pedidos: [enlace wa.me del bot]. Es automático (usa IA). Cualquier otra cosa, me escribes a mí como siempre. Más info: [enlace a la nota de transparencia]
+> [Nombre], este es el número del asistente para consultar tus pedidos: https://wa.me/51974282339. Es automático (usa IA). Cualquier otra cosa, me escribes a mí como siempre. Más info: https://byrogr.github.io/yeseniacloset/privacidad.html
 
 ## 2. Anuncio general para abrirlo a todas
 
 Por estado de WhatsApp o mensaje a las clientas, al terminar el piloto con resultado positivo, antes de vaciar `BOT_ALLOWLIST`.
 
-> 📦 ¡Novedad! Ahora puedes consultar tus pedidos de Pacifika y Carmel cuando quieras en este número: [enlace wa.me del bot]
+> 📦 ¡Novedad! Ahora puedes consultar tus pedidos de Pacifika y Carmel cuando quieras en este número: https://wa.me/51974282339
 >
 > Te responde un asistente automático (con inteligencia artificial): qué pediste, tu total y hasta cuándo pagas. Los montos salen de mi hoja de pedidos.
 >
 > Mi número sigue siendo el mismo para pedidos, pagos y todo lo demás 💬
 >
-> Cómo funciona y qué datos usa: [enlace a la nota de transparencia]
+> Cómo funciona y qué datos usa: https://byrogr.github.io/yeseniacloset/privacidad.html
 
 ## Nota para la dueña
 
