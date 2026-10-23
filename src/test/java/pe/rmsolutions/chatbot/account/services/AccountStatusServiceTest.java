@@ -205,6 +205,13 @@ class AccountStatusServiceTest {
     }
 
     @Test
+    void reconoceSoloALasClientasDeLaPestanaClientas() {
+        assertThat(service.isRegisteredCustomer("+51 911 111 111")).isTrue();
+        assertThat(service.isRegisteredCustomer("51999999999")).isFalse();
+        assertThat(service.isRegisteredCustomer("12345")).isFalse();
+    }
+
+    @Test
     void celularNoRegistradoDevuelveNoRegistrada() {
         AccountStatus status = service.getAccountStatus("51999999999");
 

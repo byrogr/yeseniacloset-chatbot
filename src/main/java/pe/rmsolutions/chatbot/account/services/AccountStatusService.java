@@ -40,6 +40,16 @@ public class AccountStatusService {
 
     private final WorkbookProvider workbookProvider;
 
+    /**
+     * Indica si el celular está en la pestaña {@code Clientas}. Propaga
+     * {@link pe.rmsolutions.chatbot.sheets.repository.WorkbookUnavailableException} si el Sheet no se puede leer.
+     */
+    public boolean isRegisteredCustomer(String rawPhone) {
+        Optional<String> phone = PhoneNormalizer.normalize(rawPhone);
+        return phone.isPresent() && workbookProvider.get().customers().stream()
+                .anyMatch(c -> c.phone().equals(phone.get()));
+    }
+
     public AccountStatus getAccountStatus(String rawPhone) {
         Optional<String> phone = PhoneNormalizer.normalize(rawPhone);
         if (phone.isEmpty()) {

@@ -44,6 +44,7 @@ public class BotMetrics {
     public enum IgnoreReason {
         DISABLED,
         NOT_ALLOWLISTED,
+        NOT_REGISTERED,
         NOTICE_SUPPRESSED
     }
 

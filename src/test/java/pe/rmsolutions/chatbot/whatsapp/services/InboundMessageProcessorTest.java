@@ -1,6 +1,8 @@
 package pe.rmsolutions.chatbot.whatsapp.services;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import pe.rmsolutions.chatbot.account.services.AccountStatusService;
 import pe.rmsolutions.chatbot.agent.MutableClock;
 import pe.rmsolutions.chatbot.agent.TestBotConfig;
 import pe.rmsolutions.chatbot.agent.model.ChatReply;
@@ -9,6 +11,7 @@ import pe.rmsolutions.chatbot.agent.services.ConversationPauseRegistry;
 import pe.rmsolutions.chatbot.agent.services.HandoffMessages;
 import pe.rmsolutions.chatbot.observability.services.BotMetrics;
 import pe.rmsolutions.chatbot.observability.services.BotMetrics.IgnoreReason;
+import pe.rmsolutions.chatbot.sheets.repository.WorkbookUnavailableException;
 import pe.rmsolutions.chatbot.whatsapp.config.WhatsAppConfig;
 import pe.rmsolutions.chatbot.whatsapp.model.InboundMessage;
 import pe.rmsolutions.chatbot.whatsapp.repository.GraphApiClientException;
@@ -32,7 +35,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Verifica el orden de filtros (pausa, interruptor y lista de piloto, tipo), los avisos fijos, el envío y el
+ * Verifica el orden de filtros (pausa, interruptor, lista de piloto y clienta registrada, tipo), los avisos fijos, el envío y el
  * recorte de la respuesta, en modo número nuevo y en modo coexistencia.
  *
  * @author Roger Rojas - roger.rojas@rmsolutions.pe
@@ -51,9 +54,15 @@ class InboundMessageProcessorTest {
     private final MutableClock clock = new MutableClock(Instant.parse("2026-10-03T10:00:00Z"));
     private final ConversationPauseRegistry pauses = new ConversationPauseRegistry(clock);
     private final ChatService chatService = mock(ChatService.class);
+    private final AccountStatusService accountStatusService = mock(AccountStatusService.class);
     private final OutboundMessenger messenger = mock(OutboundMessenger.class);
     private final BotMetrics metrics = mock(BotMetrics.class);
     private final NoticeThrottle throttle = new NoticeThrottle(clock);
+
+    @BeforeEach
+    void todasRegistradas() {
+        when(accountStatusService.isRegisteredCustomer(anyString())).thenReturn(true);
+    }
 
     @Test
     void audioRecibeElAvisoUnaVezCada12Horas() {
@@ -117,6 +126,40 @@ class InboundMessageProcessorTest {
                 processor(TestBotConfig.redirectingToOwner().withAllowlist(OTHER, PHONE));
 
         processor.process(message("text", "hola"));
+
+        verify(messenger).sendText(PHONE, "Hola Gaby");
+    }
+
+    @Test
+    void celularQueNoEsClientaNoLlamaAlAsistenteYRedirigeUnaVez() {
+        when(accountStatusService.isRegisteredCustomer(PHONE)).thenReturn(false);
+        InboundMessageProcessor processor = processor(TestBotConfig.redirectingToOwner());
+
+        processor.process(message("text", "hola"));
+        processor.process(message("audio", null));
+        processor.process(message("text", "cuanto debo?"));
+
+        verify(messenger, times(1)).sendText(PHONE, REDIRECT_NOTICE);
+        verify(messenger, times(1)).sendText(anyString(), anyString());
+        verify(metrics, times(3)).messageIgnored(IgnoreReason.NOT_REGISTERED);
+        verifyNoInteractions(chatService);
+    }
+
+    @Test
+    void enCoexistenciaCelularQueNoEsClientaCalla() {
+        when(accountStatusService.isRegisteredCustomer(PHONE)).thenReturn(false);
+
+        processor(new TestBotConfig()).process(message("text", "hola"));
+
+        verifyNoInteractions(chatService, messenger);
+    }
+
+    @Test
+    void sheetNoDisponibleAlVerificarPasaAlAsistente() {
+        when(accountStatusService.isRegisteredCustomer(PHONE)).thenThrow(new WorkbookUnavailableException("caído"));
+        when(chatService.reply(PHONE, "hola")).thenReturn(reply("Hola Gaby"));
+
+        processor(TestBotConfig.redirectingToOwner()).process(message("text", "hola"));
 
         verify(messenger).sendText(PHONE, "Hola Gaby");
     }
@@ -189,7 +232,7 @@ class InboundMessageProcessorTest {
     private InboundMessageProcessor processor(TestBotConfig botConfig) {
         WhatsAppConfig config = mock(WhatsAppConfig.class);
         when(config.maxTextLength()).thenReturn(10);
-        return new InboundMessageProcessor(chatService, messenger, config, botConfig, pauses,
+        return new InboundMessageProcessor(chatService, accountStatusService, messenger, config, botConfig, pauses,
                 new HandoffMessages(botConfig), throttle, metrics);
     }
 
