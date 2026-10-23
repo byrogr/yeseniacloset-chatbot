@@ -72,12 +72,13 @@ class BotMetricsTest {
     void mensajesIgnoradosPorMotivo() {
         metrics.messageIgnored(IgnoreReason.DISABLED);
         metrics.messageIgnored(IgnoreReason.NOT_ALLOWLISTED);
+        metrics.messageIgnored(IgnoreReason.NOT_REGISTERED);
         metrics.messageIgnored(IgnoreReason.NOTICE_SUPPRESSED);
         metrics.messageIgnored(IgnoreReason.NOTICE_SUPPRESSED);
 
         assertThat(counts(reader.collectAllMetrics(), "chatbot.messages.ignored", BotMetrics.REASON.getKey()))
                 .containsExactlyInAnyOrderEntriesOf(
-                        Map.of("disabled", 1L, "not_allowlisted", 1L, "notice_suppressed", 2L));
+                        Map.of("disabled", 1L, "not_allowlisted", 1L, "not_registered", 1L, "notice_suppressed", 2L));
     }
 
     @Test

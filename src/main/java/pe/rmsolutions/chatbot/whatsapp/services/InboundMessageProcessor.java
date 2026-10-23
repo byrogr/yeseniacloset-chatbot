@@ -3,6 +3,7 @@ package pe.rmsolutions.chatbot.whatsapp.services;
 import jakarta.enterprise.context.ApplicationScoped;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import pe.rmsolutions.chatbot.account.services.AccountStatusService;
 import pe.rmsolutions.chatbot.agent.config.BotConfig;
 import pe.rmsolutions.chatbot.agent.model.ChatReply;
 import pe.rmsolutions.chatbot.agent.services.ChatService;
@@ -11,6 +12,7 @@ import pe.rmsolutions.chatbot.agent.services.HandoffMessages;
 import pe.rmsolutions.chatbot.agent.utils.MaskingUtils;
 import pe.rmsolutions.chatbot.observability.services.BotMetrics;
 import pe.rmsolutions.chatbot.observability.services.BotMetrics.IgnoreReason;
+import pe.rmsolutions.chatbot.sheets.repository.WorkbookUnavailableException;
 import pe.rmsolutions.chatbot.sheets.utils.PhoneNormalizer;
 import pe.rmsolutions.chatbot.whatsapp.config.WhatsAppConfig;
 import pe.rmsolutions.chatbot.whatsapp.model.InboundMessage;
@@ -21,8 +23,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Procesa un mensaje entrante, en este orden: conversación pausada (silencio), bot apagado o celular fuera de
- * la lista de piloto (aviso de redirección), mensaje que no es texto (aviso) y, por último, el asistente.
+ * Procesa un mensaje entrante, en este orden: conversación pausada (silencio), bot apagado, celular fuera de
+ * la lista de piloto o que no está en la pestaña {@code Clientas} (aviso de redirección), mensaje que no es
+ * texto (aviso) y, por último, el asistente.
  * Los avisos son textos fijos, sin LLM, limitados por {@link NoticeThrottle}. Nunca registra el texto de los
  * mensajes ni el celular completo.
  *
@@ -36,6 +39,7 @@ public class InboundMessageProcessor {
     static final String TEXT_TYPE = "text";
 
     private final ChatService chatService;
+    private final AccountStatusService accountStatusService;
     private final OutboundMessenger messenger;
     private final WhatsAppConfig config;
     private final BotConfig botConfig;
@@ -95,7 +99,20 @@ public class InboundMessageProcessor {
         if (!allowlist.isEmpty() && !allowlist.contains(phone)) {
             return Optional.of(IgnoreReason.NOT_ALLOWLISTED);
         }
+        if (!isRegisteredOrUnknown(phone)) {
+            return Optional.of(IgnoreReason.NOT_REGISTERED);
+        }
         return Optional.empty();
+    }
+
+    // Si el Sheet no se puede leer, el mensaje pasa: el asistente tiene su respaldo y no se bloquea a una clienta.
+    private boolean isRegisteredOrUnknown(String phone) {
+        try {
+            return accountStatusService.isRegisteredCustomer(phone);
+        } catch (WorkbookUnavailableException e) {
+            log.warn("Sheet no disponible al verificar a {}; el mensaje pasa al asistente", MaskingUtils.maskPhone(phone));
+            return true;
+        }
     }
 
     // Sin texto (coexistencia) no hay aviso de redirección: la dueña ve el mensaje en su app.
