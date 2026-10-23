@@ -45,11 +45,12 @@ En `whatsapp.services.InboundMessageProcessor`, antes de cualquier otra lógica:
 
 1. Si `bot.enabled == false`, no llama al agente y responde el aviso de redirección de A6.
 2. Si `allowlist` no está vacía y el celular normalizado no está en ella, no llama al agente y responde el aviso de redirección de A6.
-3. Los ecos (`smb_message_echoes`) siguen pausando siempre, aunque el bot esté apagado o el celular fuera de la lista.
+3. Si el celular no está en la pestaña `Clientas`, no llama al agente y responde el aviso de redirección de A6. Si el Sheet no se puede leer, el mensaje pasa al agente (que ya tiene su respaldo). Se agregó al cerrar el piloto: sin lista blanca, era la única barrera para que un desconocido no consuma el modelo.
+4. Los ecos (`smb_message_echoes`) siguen pausando siempre, aunque el bot esté apagado o el celular fuera de la lista.
 
 Como nadie lee el número del bot, ignorar en silencio dejaría a la clienta sin respuesta. El aviso de redirección es un texto fijo, sin LLM, así que es seguro aunque el bot esté apagado por un problema del modelo. Se envía **como máximo una vez por celular cada 12 h** (mismo mecanismo que A2).
 
-Registra una métrica (A3) para cada mensaje que no pasa por el agente, con el motivo (`disabled` o `not_allowlisted`).
+Registra una métrica (A3) para cada mensaje que no pasa por el agente, con el motivo (`disabled`, `not_allowlisted` o `not_registered`).
 
 ### A2. Aviso para mensajes que no son texto (pendiente de IA responsable)
 
@@ -106,7 +107,7 @@ Métricas de negocio en una clase nueva, `observability.services.BotMetrics`. Cr
 | `chatbot.turn.duration` | Histogram (ms) | — | `ChatService` |
 | `chatbot.guard.triggered` | Counter | — | `ChatService` |
 | `chatbot.handoffs` | Counter | — | `OrderTools.handOffToOwner` |
-| `chatbot.messages.ignored` | Counter | `reason`: `disabled`, `not_allowlisted`, `notice_suppressed` | `InboundMessageProcessor` |
+| `chatbot.messages.ignored` | Counter | `reason`: `disabled`, `not_allowlisted`, `not_registered`, `notice_suppressed` | `InboundMessageProcessor` |
 | `chatbot.messages.non_text` | Counter | — | `InboundMessageProcessor` |
 | `chatbot.outbound.errors` | Counter | `metaErrorCode` | `CloudApiMessenger` |
 | `chatbot.webhook.signature_invalid` | Counter | — | `WebhookSignatureFilter` |
@@ -358,7 +359,7 @@ Para la dueña: el tratamiento de datos personales en Perú se rige por la Ley 2
     - Lo que la dueña notó: respuestas raras, quejas, consultas que igual le llegaron, y si las derivaciones le llegaron a su número con contexto suficiente.
     - Correcciones al Sheet que hicieron falta (nombres mal escritos, fechas vacías).
 5. **Criterios para abrir a todas**: ninguna respuesta con montos incorrectos; la dueña confirma que bajaron las consultas de "cuánto debo"; ninguna clienta pidió dejar de usarlo, o si alguna lo pidió, se resolvió.
-6. **Apertura**: anuncio general de E2 y luego `BOT_ALLOWLIST` vacío.
+6. **Apertura**: anuncio general de E2 y luego `BOT_ALLOWLIST` vacío. Desde ese momento solo llegan al modelo los celulares de la pestaña `Clientas`; una clienta nueva debe agregarse ahí para usar el bot (mientras tanto recibe el enlace de la dueña).
 
 **Plan de reversa** (de más rápido a más drástico):
 

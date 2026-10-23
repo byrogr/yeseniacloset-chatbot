@@ -18,7 +18,7 @@ Referencia para configurar la Container App `ca-chatbot-pedidos` (parte C3 de `d
 | `WHATSAPP_VERIFY_TOKEN` | **Sí** | Valor aleatorio largo, el mismo que se escribe en la configuración del webhook en Meta | 3 |
 | `BOT_OWNER_CONTACT_PHONE` | No | Celular personal de la dueña, `51` + 9 dígitos. Las derivaciones mandan a `https://wa.me/<este número>`. Vacío = modo coexistencia | 4 |
 | `BOT_ENABLED` | No | `true` o `false`. Interruptor de apagado; por defecto `true` | 4 |
-| `BOT_ALLOWLIST` | No | Celulares del piloto separados por coma (`51987654321,51912345678`). Vacía = todas las clientas | 4 |
+| `BOT_ALLOWLIST` | No | Celulares del piloto separados por coma (`51987654321,51912345678`). Vacía = todas las clientas registradas en la pestaña `Clientas` (los demás celulares reciben el enlace de la dueña) | 4 |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | **Sí** | Application Insights → Información general → Cadena de conexión | 4 |
 
 Notas:
