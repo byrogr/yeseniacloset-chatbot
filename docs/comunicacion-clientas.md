@@ -33,4 +33,5 @@ Por estado de WhatsApp o mensaje a las clientas, al terminar el piloto con resul
 ## Nota para la dueña
 
 - El tratamiento de datos personales en Perú se rige por la **Ley 29733** (Ley de Protección de Datos Personales) y su reglamento. Si hay dudas sobre si hace falta pedir consentimiento por escrito o registrar el banco de datos, conviene consultarlo con un especialista. Estos borradores y la nota de transparencia **no son asesoría legal**.
+- Desde la apertura, el bot solo atiende a quien está en la pestaña `Clientas`. Si una clienta nueva escribe al bot antes de que la agregues, recibe el enlace para escribirte a ti.
 - Si una clienta del piloto pide salir, se quita su celular de `BOT_ALLOWLIST`. A partir de ahí, si escribe al número del bot, solo recibe el enlace para escribirte a ti.
